@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "994184227175",
+    "project_id": "ciudademojis",
+    "storage_bucket": "ciudademojis.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:994184227175:android:0cc47a8abba2300cd9a7c2",
+        "android_client_info": {
+          "package_name": "com.ciudademojis.firestore"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "994184227175-9jkks6l4g1j3r2gace235hljohbj9vaa.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.ciudademojis.firestore",
+            "certificate_hash": "a31b4866f9a8138aec3974836f44bc8710b09d45"
+          }
+        },
+        {
+          "client_id": "994184227175-hcci53u707opc8ked0te8ta59u1gl0j3.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBKiddu2PsErfrxfnuDGrgl3SMpsx1v28E"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "994184227175-hcci53u707opc8ked0te8ta59u1gl0j3.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
