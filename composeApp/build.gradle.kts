@@ -43,6 +43,8 @@ kotlin {
             implementation(compose.preview)
             implementation(libs.androidx.activity.compose)
             implementation(project.dependencies.platform(libs.android.firebase.bom))
+            implementation(libs.ktor.client.android) // AÑADIDO
+
         }
         commonMain.dependencies {
 //            implementation("cafe.adriel.voyager:voyager-screenmodel:1.1.0-beta01")
@@ -71,6 +73,19 @@ kotlin {
             implementation(libs.kotlinx.serialization.json)
             implementation(libs.gitlive.firebase.firestore)
             implementation(libs.gitlive.firebase.auth)
+            //para vercel
+            implementation(libs.coil.compose)
+            implementation(libs.coil.network.okhttp)
+            implementation("io.ktor:ktor-network:2.3.5")
+            implementation("io.ktor:ktor-client-core:2.3.11")
+
+            implementation(libs.ktor.serialization.kotlinx.json)
+            implementation(libs.ktor.client.core)
+            implementation(libs.ktor.client.content.negotiation)
+
+
+
+
         }
         desktopMain.dependencies {
             implementation(compose.desktop.currentOs)

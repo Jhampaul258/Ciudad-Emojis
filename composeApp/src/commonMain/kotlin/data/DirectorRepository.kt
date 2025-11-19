@@ -17,4 +17,5 @@ class DirectorRepository {
     suspend fun createOrUpdateDirector(director: Director) {
         directorsCollection.document(director.uid).set(director)
     }
+
 }
