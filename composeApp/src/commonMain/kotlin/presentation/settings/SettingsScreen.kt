@@ -41,6 +41,7 @@ object SettingsScreen : Screen {
         val parentNavigator = navigator.parent ?: navigator
 
         val authRepository = remember { FirebaseAuthRepository() }
+
         val directorRepository = remember { DirectorRepository() }
         val scope = rememberCoroutineScope()
 
@@ -237,9 +238,8 @@ private fun LogoutButton(
     Button(
         onClick = {
             scope.launch {
+                authRepository.logout()
                 authRepository.signOutGoogle()
-                // Esta lógica ya era correcta, porque usa el navigator que le pasamos
-                // (que ahora es el parentNavigator)
                 navigator.replaceAll(LoginScreen)
             }
         },

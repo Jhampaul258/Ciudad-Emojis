@@ -18,4 +18,5 @@ class DirectorRepository {
         directorsCollection.document(director.uid).set(director)
     }
 
+
 }

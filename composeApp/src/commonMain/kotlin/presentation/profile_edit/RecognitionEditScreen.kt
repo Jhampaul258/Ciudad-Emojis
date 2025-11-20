@@ -6,7 +6,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AddCircle
-//import androidx.compose.material.icons.filled.RemoveCircleOutline
+import androidx.compose.material.icons.filled.Delete // <-- Importación para el ícono de eliminar
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -50,8 +50,8 @@ data class RecognitionEditScreen(val directorId: String) : Screen {
                     if (director != null) {
                         initialDirectorData = director
                         // Inicializa los estados del formulario con los datos cargados
-                        festivales = director.festivales
-                        premios = director.premios
+                        festivales = director.festivales.toMutableList() // Usamos .toMutableList() para asegurar copias independientes si fuera necesario en listas anidadas, aunque aquí no es crítico.
+                        premios = director.premios.toMutableList()
                         errorMessage = null
                     } else {
                         errorMessage = "No se encontró la información del director."
@@ -141,6 +141,7 @@ data class RecognitionEditScreen(val directorId: String) : Screen {
                                         premios = premios
                                     )
                                     try {
+                                        // Usa createOrUpdateDirector para guardar los cambios en Firestore
                                         directorRepository.createOrUpdateDirector(updatedDirector)
                                         navigator.pop()
                                     } catch (e: Exception) {
@@ -233,7 +234,8 @@ private fun DynamicListEditor(
                         style = MaterialTheme.typography.bodyMedium
                     )
                     IconButton(onClick = { onRemoveItem(index) }) {
-                        Icon(Icons.Default.AddCircle, contentDescription = "Eliminar item", tint = MaterialTheme.colorScheme.error)
+                        // CORRECCIÓN: Usamos el ícono de Delete
+                        Icon(Icons.Default.Delete, contentDescription = "Eliminar item", tint = MaterialTheme.colorScheme.error)
                     }
                 }
             }

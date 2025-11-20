@@ -85,8 +85,12 @@ class FirebaseAuthRepository : AuthRepository {
         }
     }
 
+
     override suspend fun signOutGoogle(): Result<Unit> = signOutGooglePlatform()
 
+    override suspend fun logout() {
+        auth.signOut()
+    }
 }
 
 expect suspend fun signOutGooglePlatform(): Result<Unit>
