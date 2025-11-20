@@ -1,47 +1,44 @@
 package presentation.components
 
-import android.annotation.SuppressLint
+import android.view.ViewGroup
+import android.webkit.WebChromeClient
 import android.webkit.WebView
-import android.webkit.WebViewClient
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.AndroidView
 
-@SuppressLint("SetJavaScriptEnabled")
 @Composable
 actual fun YouTubePlayer(
-    modifier: Modifier,
-    videoUrl: String
+    videoId: String,
+    modifier: Modifier
 ) {
-    // Esta llamada ahora usará la función 'rememberVideoId' de commonMain
-    val videoId = rememberVideoId(videoUrl)
-
-    val htmlData = """
-        <html style="margin:0;padding:0;">
-        <body style="margin:0;padding:0; background-color:black;">
-        <div style="position:relative; width:100%; height:0; padding-bottom:56.25%;">
-            <iframe
-                style="position:absolute; top:0; left:0; width:100%; height:100%;"
-                src="https://www.youtube.com/embed/$videoId?autoplay=1&playsinline=1&controls=1&fs=1"
-                frameborder="0"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowfullscreen
-            ></iframe>
-        </div>
-        </body>
-        </html>
-    """.trimIndent()
+    // Copiamos el HTML exacto del ejemplo, inyectando tu ID de video
+    val videoHtml = "<iframe width=\"100%\" height=\"100%\" src=\"https://www.youtube.com/embed/$videoId?si=eNAb0A2l3iqBIsNo\" title=\"YouTube video player\" frameborder=\"0\" allow=\"accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share\" referrerpolicy=\"strict-origin-when-cross-origin\" allowfullscreen></iframe>"
 
     AndroidView(
+        modifier = modifier,
         factory = { context ->
             WebView(context).apply {
+                // Configuración de layout para que ocupe el espacio del Box en Compose
+                layoutParams = ViewGroup.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.MATCH_PARENT
+                )
+
+                // 1. Habilitamos JavaScript (Igual que en el ejemplo)
                 settings.javaScriptEnabled = true
-                webViewClient = WebViewClient()
-                loadData(htmlData, "text/html", "utf-8")
+
+                // (Opcional pero recomendado para Compose) Evita problemas de renderizado
+                settings.domStorageEnabled = true
+
+                // 2. Usamos WebChromeClient (Igual que en el ejemplo)
+                webChromeClient = WebChromeClient()
+
+                // 3. Cargamos la data (Igual que en el ejemplo)
+                // Nota: loadData a veces requiere codificación base64 para ciertos caracteres,
+                // pero aquí usamos el método simple tal cual el ejemplo.
+                loadData(videoHtml, "text/html", "utf-8")
             }
-        },
-        modifier = modifier
+        }
     )
 }
-
-// ¡LA FUNCIÓN DUPLICADA 'rememberVideoId' HA SIDO ELIMINADA DE AQUÍ!

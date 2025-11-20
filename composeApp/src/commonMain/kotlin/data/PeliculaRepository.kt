@@ -56,4 +56,15 @@ class PeliculaRepository {
                 snapshot.documents.map { it.data<Pelicula>() }
             }
     }
+    suspend fun updatePelicula(pelicula: Pelicula): Result<Unit> {
+        return try {
+            if (pelicula.id.isEmpty()) return Result.failure(Exception("ID de película no válido"))
+
+            // Sobrescribe el documento existente con los nuevos datos
+            peliculasCollection.document(pelicula.id).set(pelicula)
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
 }

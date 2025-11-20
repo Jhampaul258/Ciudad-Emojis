@@ -1,10 +1,11 @@
-@file:Suppress("UNRESOLVED_REFERENCE")
+//@file:Suppress("UNRESOLVED_REFERENCE")
 package presentation.main
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
+import cafe.adriel.voyager.navigator.Navigator
 import cafe.adriel.voyager.navigator.tab.Tab
 import cafe.adriel.voyager.navigator.tab.TabOptions
 import presentation.guide.HistoryScreen
@@ -20,7 +21,7 @@ object HomeTab : Tab {
             return remember { TabOptions(index = 0u, title = title, icon = icon) }
         }
 
-    @Composable override fun Content() { HomeScreen() }
+    @Composable override fun Content() { Navigator(HomeScreen()) }
 }
 
 object UploadTab : Tab {
@@ -28,11 +29,11 @@ object UploadTab : Tab {
         @Composable
         get() {
             val title = "Subir"
-            val icon = rememberVectorPainter(Icons.Default.Upload)
+            val icon = rememberVectorPainter(Icons.Default.Add)
             return remember { TabOptions(index = 1u, title = title, icon = icon) }
         }
 
-    @Composable override fun Content() { UploadGuideScreen.Content() }
+    @Composable override fun Content() { Navigator(UploadGuideScreen()) }
 }
 
 object HistoryTab : Tab {

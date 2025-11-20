@@ -1,5 +1,5 @@
 // Archivo: src/commonMain/kotlin/presentation/main/HomeScreen.kt
-@file:Suppress("UNRESOLVED_REFERENCE")
+//@file:Suppress("UNRESOLVED_REFERENCE")
 package presentation.main
 
 import androidx.compose.foundation.background
@@ -8,84 +8,73 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import cafe.adriel.voyager.core.screen.Screen
+import cafe.adriel.voyager.navigator.LocalNavigator
+import cafe.adriel.voyager.navigator.currentOrThrow
+import coil3.compose.AsyncImage
 import data.PeliculaRepository
 import domain.model.Pelicula
+import presentation.detail.PeliculaDetailScreen
+import utils.getYoutubeThumbnail
 
-@Composable
-fun HomeScreen() {
+class HomeScreen : Screen {
 
-    // 1. Inicializa el repositorio
-    val peliculaRepository = remember { PeliculaRepository() }
+    @Composable
+    override fun Content() {
+        // Obtenemos el navegador local (ahora será el anidado, no el TabNavigator)
+        val navigator = LocalNavigator.currentOrThrow
 
-    // 2. Recolecta el Flow como un State.
-    // 'collectAsState' convierte el Flow en tiempo real en un State de Compose.
-    // Empezamos con 'initial = null' para representar el estado de "carga inicial".
-    val peliculasState by peliculaRepository.getAllPeliculasStream().collectAsState(initial = null)
+        val peliculaRepository = remember { PeliculaRepository() }
+        val peliculasState by peliculaRepository.getAllPeliculasStream().collectAsState(initial = null)
+        val peliculas = peliculasState
 
-    // 'peliculas' será null (cargando), lista vacía (sin datos), o lista llena.
-    val peliculas = peliculasState
-
-    Scaffold(
-//        topBar = {
-//            TopAppBar(
-//                title = { Text("Estrenos") }
-//            )
-//        }
-    ) { paddingValues ->
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-        ) {
-            when {
-                // --- Caso 1: Cargando (el estado inicial es null) ---
-                peliculas == null -> {
-                    CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
-                }
-
-                // --- Caso 2: Lista vacía ---
-                peliculas.isEmpty() -> {
-                    Text(
-                        text = "Aún no se ha subido ninguna película. \n¡Sé el primero desde la pestaña 'Subir'!",
-                        modifier = Modifier.align(Alignment.Center).padding(16.dp),
-                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                    )
-                }
-
-                // --- Caso 3: Tenemos películas ---
-                else -> {
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
-                        // Título de la sección (estilo Netflix)
-                        item {
-                            Text(
-                                "Recién Añadido",
-                                style = MaterialTheme.typography.headlineSmall,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-
-                        // El "feed" de películas
-                        items(peliculas, key = { it.id }) { pelicula ->
-                            PeliculaCard(
-                                pelicula = pelicula,
-                                onClick = {
-                                    // TODO: Navegar a la pantalla de detalle de la película
-                                }
-                            )
+        Scaffold { paddingValues ->
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues)
+            ) {
+                when {
+                    peliculas == null -> {
+                        CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+                    }
+                    peliculas.isEmpty() -> {
+                        Text(
+                            text = "Aún no se ha subido ninguna película.",
+                            modifier = Modifier.align(Alignment.Center).padding(16.dp)
+                        )
+                    }
+                    else -> {
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize(),
+                            contentPadding = PaddingValues(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(16.dp)
+                        ) {
+                            item {
+                                Text("Recién Añadido", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                            }
+                            items(peliculas, key = { it.id }) { pelicula ->
+                                PeliculaCard(
+                                    pelicula = pelicula,
+                                    onClick = {
+                                        // AHORA SÍ funcionará: Navegamos dentro de la pestaña actual
+                                        navigator.push(PeliculaDetailScreen(pelicula))
+                                    }
+                                )
+                            }
                         }
                     }
                 }
@@ -93,8 +82,6 @@ fun HomeScreen() {
         }
     }
 }
-
-
 /**
  * Un Composable para mostrar una tarjeta de película (estilo Netflix/Facebook).
  */
@@ -103,6 +90,7 @@ fun PeliculaCard(
     pelicula: Pelicula,
     onClick: () -> Unit
 ) {
+    val thumbnailUrl = remember(pelicula.videoUrl) { getYoutubeThumbnail(pelicula.videoUrl) }
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -119,23 +107,37 @@ fun PeliculaCard(
                     .background(MaterialTheme.colorScheme.secondaryContainer),
                 contentAlignment = Alignment.Center
             ) {
-                // --- IMPORTANTE: Cargar la imagen ---
-                // Aquí necesitas una librería de carga de imágenes KMP como Kamel-image o Coil
-                // (si usas 'compose-imageloader' o similar).
 
-                // KamelImage(
-                //    resource = asyncPainterResource(data = pelicula.caratulaUrl),
-                //    contentDescription = pelicula.titulo,
-                //    contentScale = ContentScale.Crop,
-                //    modifier = Modifier.fillMaxSize()
-                // )
+                if (thumbnailUrl.isNotEmpty()) {
+                    AsyncImage(
+                        model = thumbnailUrl,
+                        contentDescription = pelicula.titulo,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
+                    )
 
-                // --- Placeholder mientras no tengas la librería ---
-                if (pelicula.caratulaUrl.isBlank()) {
-                    Text("Sin Carátula", style = MaterialTheme.typography.bodySmall)
+                    // Degradado sutil en la parte inferior de la imagen para mejorar lectura si hubiera texto
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(
+                                Brush.verticalGradient(
+                                    colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.3f)),
+                                    startY = 300f
+                                )
+                            )
+                    )
+
+//                    // Icono de Play superpuesto
+//                    Icon(
+//                        imageVector = Icons.Default.Star,
+//                        contentDescription = "Reproducir",
+//                        tint = Color.White.copy(alpha = 0.8f),
+//                        modifier = Modifier.size(48.dp)
+//                    )
                 } else {
-                    // TODO: Reemplazar este Text con el cargador de imagen
-                    Text("Cargar: ${pelicula.caratulaUrl.take(20)}...", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                    // Fallback si no hay URL de video válida
+                    Text("Sin vista previa", color = Color.White)
                 }
             }
 

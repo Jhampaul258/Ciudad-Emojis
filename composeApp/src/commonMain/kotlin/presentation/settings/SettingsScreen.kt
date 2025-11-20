@@ -27,6 +27,7 @@ import kotlinx.coroutines.launch
 import presentation.auth.LoginScreen
 import presentation.profile_edit.BasicInfoEditScreen
 import presentation.profile_edit.DigitalPresenceEditScreen
+import presentation.profile_edit.DirectorContentScreen
 import presentation.profile_edit.PresentationEditScreen
 import presentation.profile_edit.RecognitionEditScreen
 import presentation.profile_edit.SupportEditScreen
@@ -144,6 +145,11 @@ object SettingsScreen : Screen {
                             text = "Apoyo y Financiamiento",
                             isComplete = isSupportComplete,
                             onClick = { parentNavigator.push(SupportEditScreen(directorId))  }
+                        )
+                        ProfileMenuItem(
+                            text = "Mis Películas y Series",
+                            isComplete = isSupportComplete,
+                            onClick = { parentNavigator.push(DirectorContentScreen())  }
                         )
                     }
 
