@@ -66,7 +66,7 @@ data class PeliculaDetailScreen(val pelicula: Pelicula) : Screen {
                 // --- Reproductor de Video o Carátula ---
                 if (videoId != null) {
                     // Usamos tu componente VideoPlayer existente
-                    Box(modifier = Modifier.fillMaxWidth().aspectRatio(8f / 8f).background(Color.Black)) {
+                    Box(modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f).background(Color.Black)) {
                         YouTubePlayer(
                            videoId = videoId,
                             modifier = Modifier.fillMaxSize()
@@ -108,13 +108,13 @@ data class PeliculaDetailScreen(val pelicula: Pelicula) : Screen {
                         }
                     }
 
-//                    Spacer(Modifier.height(16.dp))
-//
-//                    Text(
-//                        text = pelicula.titulo,
-//                        style = MaterialTheme.typography.headlineMedium,
-//                        fontWeight = FontWeight.Bold
-//                    )
+                    Spacer(Modifier.height(16.dp))
+
+                    Text(
+                        text = pelicula.titulo,
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.Bold
+                    )
 
                     Spacer(Modifier.height(8.dp))
 
