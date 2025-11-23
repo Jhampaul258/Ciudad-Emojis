@@ -10,11 +10,11 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Build
 //import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.PlayArrow
 //import androidx.compose.material.icons.filled.PlayCircleFilled
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -62,7 +62,6 @@ data class PeliculaDetailScreen(val pelicula: Pelicula) : Screen {
         val allPeliculasState by peliculaRepository.getAllPeliculasStream().collectAsState(initial = emptyList())
         var directorData by remember { mutableStateOf<Director?>(null) }
 
-        // Cargar datos del director para obtener el QR y números
         LaunchedEffect(pelicula.directorId) {
             directorRepository.getDirector(pelicula.directorId).collect {
                 directorData = it
@@ -71,23 +70,20 @@ data class PeliculaDetailScreen(val pelicula: Pelicula) : Screen {
 
         // Lógica de Recomendación
         val recomendaciones = remember(allPeliculasState, pelicula) {
-            // 1. PRIORIDAD: Si es serie, buscar sus episodios hermanos
             if (pelicula.esSerie && pelicula.nombreSerie.isNotBlank()) {
                 val episodios = allPeliculasState.filter {
                     it.esSerie &&
                             it.nombreSerie.equals(pelicula.nombreSerie, ignoreCase = true) &&
-                            it.id != pelicula.id // No mostrar el video actual
-                }.sortedBy { it.numeroCapitulo } // Ordenar: Cap 1, Cap 2...
+                            it.id != pelicula.id
+                }.sortedBy { it.numeroCapitulo }
 
                 if (episodios.isNotEmpty()) return@remember episodios
             }
 
-            // 2. SECUNDARIO: Películas del mismo director
             val delDirector = allPeliculasState.filter {
                 it.directorId == pelicula.directorId && it.id != pelicula.id
             }
 
-            // 3. FALLBACK: Sugerencias aleatorias
             if (delDirector.isNotEmpty()) delDirector else allPeliculasState.filter { it.id != pelicula.id }.shuffled().take(5)
         }
 
@@ -126,12 +122,16 @@ data class PeliculaDetailScreen(val pelicula: Pelicula) : Screen {
                 // 1. HEADER CON IMAGEN
                 item {
                     Box(Modifier.fillMaxWidth().height(300.dp)) {
-                        AsyncImage(
-                            model = headerThumbnail,
-                            contentDescription = null,
-                            modifier = Modifier.fillMaxSize(),
-                            contentScale = ContentScale.Crop
-                        )
+                        // SOLUCIÓN 1: Usamos key() para forzar la recomposición de la imagen
+                        key(headerThumbnail) {
+                            AsyncImage(
+                                model = headerThumbnail,
+                                contentDescription = null,
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = ContentScale.Crop
+                            )
+                        }
+
                         Box(
                             modifier = Modifier.fillMaxSize().background(
                                 Brush.verticalGradient(
@@ -155,7 +155,6 @@ data class PeliculaDetailScreen(val pelicula: Pelicula) : Screen {
                 // 2. INFORMACIÓN
                 item {
                     Column(modifier = Modifier.padding(horizontal = 16.dp)) {
-                        // Si es serie, mostramos "Serie • Cap X"
                         val infoExtra = if (pelicula.esSerie) " • Cap. ${pelicula.numeroCapitulo}" else ""
 
                         Text(pelicula.titulo, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
@@ -179,9 +178,7 @@ data class PeliculaDetailScreen(val pelicula: Pelicula) : Screen {
                     }
                 }
 
-
-
-                // 4. RECOMENDACIONES
+                // 3. RECOMENDACIONES / OTROS EPISODIOS
                 if (recomendaciones.isNotEmpty()) {
                     item {
                         Text(tituloSeccion, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
@@ -190,12 +187,16 @@ data class PeliculaDetailScreen(val pelicula: Pelicula) : Screen {
                         RecommendationItem(
                             pelicula = itemRecomendado,
                             isSeriesContext = pelicula.esSerie && itemRecomendado.nombreSerie == pelicula.nombreSerie,
-                            onClick = { navigator.push(PeliculaDetailScreen(itemRecomendado)) }
+                            onClick = {
+                                // SOLUCIÓN 2: Usamos 'replace' en lugar de 'push'
+                                // Esto cierra la pantalla actual y abre la nueva. Al dar 'Atrás', vas al Home.
+                                navigator.replace(PeliculaDetailScreen(itemRecomendado))
+                            }
                         )
                     }
                     item { Spacer(Modifier.height(24.dp)) }
                 }
-                // 3. SECCIÓN DE DONACIÓN (NUEVA)
+                // 4. SECCIÓN DE DONACIÓN (MOVIDA ANTES DE RECOMENDACIONES)
                 if (directorData != null && (directorData!!.yapeQrUrl.isNotEmpty() || directorData!!.yapeNumero.isNotEmpty() || directorData!!.plinNumero.isNotEmpty())) {
                     item {
                         DonationCard(
@@ -241,7 +242,6 @@ fun DonationCard(director: Director, onCopyClick: (String) -> Unit) {
 
             Spacer(Modifier.height(16.dp))
 
-            // QR Code Image
             if (director.yapeQrUrl.isNotBlank()) {
                 AsyncImage(
                     model = director.yapeQrUrl,
@@ -249,13 +249,12 @@ fun DonationCard(director: Director, onCopyClick: (String) -> Unit) {
                     modifier = Modifier
                         .size(180.dp)
                         .clip(RoundedCornerShape(12.dp))
-                        .background(Color.White), // Fondo blanco para que el QR lea bien
+                        .background(Color.White),
                     contentScale = ContentScale.Fit
                 )
                 Spacer(Modifier.height(16.dp))
             }
 
-            // Números de Yape/Plin
             if (director.yapeNumero.isNotBlank()) {
                 DonationNumberRow("Yape", director.yapeNumero) {
                     clipboardManager.setText(AnnotatedString(director.yapeNumero))
@@ -289,13 +288,13 @@ fun DonationNumberRow(label: String, number: String, onCopy: () -> Unit) {
             Text(number, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
         }
         IconButton(onClick = onCopy) {
-            Icon(Icons.Default.Build, "Copiar", tint = MaterialTheme.colorScheme.primary)
+            Icon(Icons.Default.Share, "Copiar", tint = MaterialTheme.colorScheme.primary)
         }
     }
 }
 
 @Composable
-fun RecommendationItem(pelicula: Pelicula,isSeriesContext: Boolean, onClick: () -> Unit) {
+fun RecommendationItem(pelicula: Pelicula, isSeriesContext: Boolean, onClick: () -> Unit) {
     val thumb = remember(pelicula.videoUrl) { getYoutubeThumbnail(pelicula.videoUrl) }
 
     Row(
@@ -327,7 +326,6 @@ fun RecommendationItem(pelicula: Pelicula,isSeriesContext: Boolean, onClick: () 
         }
         Spacer(Modifier.width(12.dp))
         Column(modifier = Modifier.fillMaxHeight(), verticalArrangement = Arrangement.Center) {
-            // Si estamos viendo una serie, resaltamos el número de capítulo
             if (isSeriesContext) {
                 Text("Capítulo ${pelicula.numeroCapitulo}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
             }
@@ -339,7 +337,6 @@ fun RecommendationItem(pelicula: Pelicula,isSeriesContext: Boolean, onClick: () 
                 Text(pelicula.directorName, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
             }
 
-            // Información sutil abajo
             Text(if (isSeriesContext) "${pelicula.anio}" else "${pelicula.anio} • ${pelicula.genero}", style = MaterialTheme.typography.labelSmall, color = Color.Gray)        }
     }
 }

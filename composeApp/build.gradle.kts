@@ -47,7 +47,7 @@ kotlin {
 
         }
         commonMain.dependencies {
-//            implementation("cafe.adriel.voyager:voyager-screenmodel:1.1.0-beta01")
+            implementation("cafe.adriel.voyager:voyager-screenmodel:1.1.0-beta01")
 
             implementation("org.apache.poi:poi-ooxml:5.2.3")
             // Core de Compose

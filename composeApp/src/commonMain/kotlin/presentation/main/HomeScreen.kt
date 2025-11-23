@@ -21,6 +21,7 @@ import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import cafe.adriel.voyager.core.model.rememberScreenModel
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
@@ -34,40 +35,25 @@ class HomeScreen : Screen {
 
     @Composable
     override fun Content() {
+        // 1. Inyectamos el ViewModel (ScreenModel)
+        val viewModel = rememberScreenModel { HomeViewModel() }
+
+        // 2. Observamos el estado (StateFlow)
+        val state by viewModel.state.collectAsState()
+
         val navigator = LocalNavigator.currentOrThrow
         val uriHandler = LocalUriHandler.current
-
-        val peliculaRepository = remember { PeliculaRepository() }
-
-        // Obtenemos todas las películas (flujo en tiempo real)
-        // 'allPeliculasRaw' contiene TODOS los capítulos individuales
-        val allPeliculasRaw by peliculaRepository.getAllPeliculasStream().collectAsState(initial = null)
-
-        // --- LÓGICA DE AGRUPACIÓN MAESTRA ---
-        // Esta lista 'groupedContent' tendrá:
-        // 1. Todas las películas normales.
-        // 2. SOLO UN elemento por cada serie (el más reciente encontrado).
-        val groupedContent = remember(allPeliculasRaw) {
-            allPeliculasRaw
-                ?.distinctBy { if (it.esSerie && it.nombreSerie.isNotBlank()) it.nombreSerie else it.id }
-                ?: emptyList()
-        }
-
-        // Listas derivadas de la agrupada
-        val seriesList = remember(groupedContent) { groupedContent.filter { it.esSerie } }
-        val moviesList = remember(groupedContent) { groupedContent.filter { !it.esSerie } }
-
-        // La "Destacada" sigue siendo la más reciente ABSOLUTA (raw) para anunciar novedades específicas
-        val featuredContent = remember(allPeliculasRaw) { allPeliculasRaw?.firstOrNull() }
 
         Scaffold(
             containerColor = MaterialTheme.colorScheme.background
         ) { paddingValues ->
-            if (allPeliculasRaw == null) {
+
+            // 3. La UI solo reacciona al estado, no calcula nada
+            if (state.isLoading) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                    CircularProgressIndicator()
                 }
-            } else if (allPeliculasRaw!!.isEmpty()) {
+            } else if (state.groupedContent.isEmpty()) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text("No hay contenido disponible", color = Color.Gray)
                 }
@@ -78,49 +64,40 @@ class HomeScreen : Screen {
                         .padding(bottom = paddingValues.calculateBottomPadding()),
                     verticalArrangement = Arrangement.spacedBy(24.dp)
                 ) {
-                    // 1. SECCIÓN DESTACADA (HERO)
-                    if (featuredContent != null) {
+                    // Hero Section
+                    state.featuredContent?.let { featured ->
                         item {
                             FeaturedHeader(
-                                pelicula = featuredContent,
+                                pelicula = featured,
                                 onPlayClick = {
-                                    if (featuredContent.videoUrl.isNotBlank()) {
-                                        uriHandler.openUri(featuredContent.videoUrl)
-                                    }
+                                    if (featured.videoUrl.isNotBlank()) uriHandler.openUri(featured.videoUrl)
                                 },
-                                onInfoClick = { navigator.push(PeliculaDetailScreen(featuredContent)) }
+                                onInfoClick = { navigator.push(PeliculaDetailScreen(featured)) }
                             )
                         }
                     }
 
-                    // 2. SECCIÓN SERIES (Agrupadas)
-                    if (seriesList.isNotEmpty()) {
+                    // Series
+                    if (state.seriesList.isNotEmpty()) {
                         item {
                             SectionTitle("Series")
-                            ContentRow(seriesList) { selected ->
-                                navigator.push(PeliculaDetailScreen(selected))
-                            }
+                            ContentRow(state.seriesList) { navigator.push(PeliculaDetailScreen(it)) }
                         }
                     }
 
-                    // 3. SECCIÓN PELÍCULAS
-                    if (moviesList.isNotEmpty()) {
+                    // Películas
+                    if (state.moviesList.isNotEmpty()) {
                         item {
                             SectionTitle("Películas")
-                            ContentRow(moviesList) { selected ->
-                                navigator.push(PeliculaDetailScreen(selected))
-                            }
+                            ContentRow(state.moviesList) { navigator.push(PeliculaDetailScreen(it)) }
                         }
                     }
 
-                    // 4. ÚLTIMOS ESTRENOS (AHORA TAMBIÉN AGRUPADOS)
-                    if (groupedContent.isNotEmpty()) {
+                    // Últimos Agregados
+                    if (state.groupedContent.isNotEmpty()) {
                         item {
                             SectionTitle("Últimos Agregados")
-                            // Pasamos 'groupedContent' en lugar de la lista cruda
-                            ContentRow(groupedContent) { selected ->
-                                navigator.push(PeliculaDetailScreen(selected))
-                            }
+                            ContentRow(state.groupedContent) { navigator.push(PeliculaDetailScreen(it)) }
                             Spacer(Modifier.height(80.dp))
                         }
                     }
