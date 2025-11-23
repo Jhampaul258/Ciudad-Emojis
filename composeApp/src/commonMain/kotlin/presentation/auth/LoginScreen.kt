@@ -108,7 +108,7 @@ object LoginScreen : Screen {
                             tint = Color.Unspecified
                         )
                         Spacer(modifier = Modifier.width(12.dp))
-                        Text("Iniciar sesión con Google", color = AppColors.black)
+                        Text("Iniciar sesión con Google", color = MaterialTheme.colorScheme.onBackground,)
                     }
                 }
                 Spacer(modifier = Modifier.height(25.dp))

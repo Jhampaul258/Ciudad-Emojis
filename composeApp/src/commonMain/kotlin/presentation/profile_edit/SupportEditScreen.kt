@@ -207,7 +207,7 @@ data class SupportEditScreen(val directorId: String) : Screen {
                                 Button(
                                     onClick = { imagePickerLauncher() },
                                     modifier = Modifier.fillMaxWidth(),
-                                    colors = ButtonDefaults.buttonColors(containerColor = AppColors.black)
+                                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.onBackground)
                                 ) {
                                     Icon(Icons.Filled.Add, null)
                                     Spacer(Modifier.width(8.dp))
