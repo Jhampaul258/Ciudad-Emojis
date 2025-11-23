@@ -71,16 +71,32 @@ data class PeliculaDetailScreen(val pelicula: Pelicula) : Screen {
 
         // Lógica de Recomendación
         val recomendaciones = remember(allPeliculasState, pelicula) {
+            // 1. PRIORIDAD: Si es serie, buscar sus episodios hermanos
+            if (pelicula.esSerie && pelicula.nombreSerie.isNotBlank()) {
+                val episodios = allPeliculasState.filter {
+                    it.esSerie &&
+                            it.nombreSerie.equals(pelicula.nombreSerie, ignoreCase = true) &&
+                            it.id != pelicula.id // No mostrar el video actual
+                }.sortedBy { it.numeroCapitulo } // Ordenar: Cap 1, Cap 2...
+
+                if (episodios.isNotEmpty()) return@remember episodios
+            }
+
+            // 2. SECUNDARIO: Películas del mismo director
             val delDirector = allPeliculasState.filter {
                 it.directorId == pelicula.directorId && it.id != pelicula.id
             }
+
+            // 3. FALLBACK: Sugerencias aleatorias
             if (delDirector.isNotEmpty()) delDirector else allPeliculasState.filter { it.id != pelicula.id }.shuffled().take(5)
         }
 
-        val tituloSeccion = if (allPeliculasState.any { it.directorId == pelicula.directorId && it.id != pelicula.id }) {
-            "Más de ${pelicula.directorName}"
-        } else {
-            "Videos Populares"
+        val tituloSeccion = remember(pelicula, recomendaciones) {
+            when {
+                pelicula.esSerie && recomendaciones.any { it.nombreSerie == pelicula.nombreSerie } -> "Más episodios de ${pelicula.nombreSerie}"
+                recomendaciones.any { it.directorId == pelicula.directorId } -> "Más de ${pelicula.directorName}"
+                else -> "Te podría gustar"
+            }
         }
 
         val headerThumbnail = remember(pelicula.videoUrl) { getYoutubeThumbnail(pelicula.videoUrl) }
@@ -139,11 +155,15 @@ data class PeliculaDetailScreen(val pelicula: Pelicula) : Screen {
                 // 2. INFORMACIÓN
                 item {
                     Column(modifier = Modifier.padding(horizontal = 16.dp)) {
+                        // Si es serie, mostramos "Serie • Cap X"
+                        val infoExtra = if (pelicula.esSerie) " • Cap. ${pelicula.numeroCapitulo}" else ""
+
                         Text(pelicula.titulo, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
                         Spacer(Modifier.height(8.dp))
+
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text("${pelicula.anio}", color = MaterialTheme.colorScheme.primary)
-                            Text(" • ${pelicula.genero}", color = MaterialTheme.colorScheme.secondary)
+                            Text(" • ${pelicula.genero}$infoExtra", color = MaterialTheme.colorScheme.secondary)
                             if (pelicula.esSerie) {
                                 Spacer(Modifier.width(8.dp))
                                 AssistChip(onClick = {}, label = { Text("Serie") }, modifier = Modifier.height(24.dp))
@@ -169,6 +189,7 @@ data class PeliculaDetailScreen(val pelicula: Pelicula) : Screen {
                     items(recomendaciones) { itemRecomendado ->
                         RecommendationItem(
                             pelicula = itemRecomendado,
+                            isSeriesContext = pelicula.esSerie && itemRecomendado.nombreSerie == pelicula.nombreSerie,
                             onClick = { navigator.push(PeliculaDetailScreen(itemRecomendado)) }
                         )
                     }
@@ -274,7 +295,7 @@ fun DonationNumberRow(label: String, number: String, onCopy: () -> Unit) {
 }
 
 @Composable
-fun RecommendationItem(pelicula: Pelicula, onClick: () -> Unit) {
+fun RecommendationItem(pelicula: Pelicula,isSeriesContext: Boolean, onClick: () -> Unit) {
     val thumb = remember(pelicula.videoUrl) { getYoutubeThumbnail(pelicula.videoUrl) }
 
     Row(
@@ -306,10 +327,19 @@ fun RecommendationItem(pelicula: Pelicula, onClick: () -> Unit) {
         }
         Spacer(Modifier.width(12.dp))
         Column(modifier = Modifier.fillMaxHeight(), verticalArrangement = Arrangement.Center) {
+            // Si estamos viendo una serie, resaltamos el número de capítulo
+            if (isSeriesContext) {
+                Text("Capítulo ${pelicula.numeroCapitulo}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+            }
+
             Text(pelicula.titulo, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
-            Spacer(Modifier.height(4.dp))
-            Text(pelicula.directorName, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
-            Text("${pelicula.anio} • ${pelicula.genero}", style = MaterialTheme.typography.labelSmall, color = Color.Gray)
-        }
+
+            if (!isSeriesContext) {
+                Spacer(Modifier.height(4.dp))
+                Text(pelicula.directorName, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
+            }
+
+            // Información sutil abajo
+            Text(if (isSeriesContext) "${pelicula.anio}" else "${pelicula.anio} • ${pelicula.genero}", style = MaterialTheme.typography.labelSmall, color = Color.Gray)        }
     }
 }
