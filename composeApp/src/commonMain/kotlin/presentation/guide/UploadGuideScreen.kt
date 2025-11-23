@@ -1,14 +1,18 @@
 package presentation.guide
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-//import androidx.compose.material.icons.filled.Link
-//import androidx.compose.material.icons.filled.Movie
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -31,11 +35,8 @@ import kotlinx.coroutines.launch
 import presentation.components.LoadingButton
 import presentation.components.ReusableSnackbarHost
 import presentation.components.rememberSnackbarController
-import utils.translateError
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Build
 import utils.getYoutubeThumbnail
+import utils.translateError
 
 data class UploadGuideScreen(val peliculaToEdit: Pelicula? = null) : Screen {
 
@@ -54,25 +55,45 @@ data class UploadGuideScreen(val peliculaToEdit: Pelicula? = null) : Screen {
         // --- Estado del formulario ---
         var titulo by remember { mutableStateOf(peliculaToEdit?.titulo ?: "") }
         var anio by remember { mutableStateOf(peliculaToEdit?.anio?.toString() ?: "") }
-        var genero by remember { mutableStateOf(peliculaToEdit?.genero ?: "") }
-        var sinopsis by remember { mutableStateOf(peliculaToEdit?.sinopsis ?: "") }
 
-        // El campo más importante ahora:
+        // Género
+        var genero by remember { mutableStateOf(peliculaToEdit?.genero ?: "") }
+        var isGenreExpanded by remember { mutableStateOf(false) }
+        val genresList = listOf("Acción", "Aventura", "Comedia", "Drama", "Terror", "Ciencia Ficción", "Fantasía", "Musical", "Suspenso", "Romance", "Documental", "Animación", "Crimen", "Misterio")
+
+        var sinopsis by remember { mutableStateOf(peliculaToEdit?.sinopsis ?: "") }
         var videoUrl by remember { mutableStateOf(peliculaToEdit?.videoUrl ?: "") }
 
+        // --- ESTADOS PARA SERIES ---
         var esSerie by remember { mutableStateOf(peliculaToEdit?.esSerie ?: false) }
+        var nombreSerie by remember { mutableStateOf(peliculaToEdit?.nombreSerie ?: "") }
+        var numeroCapitulo by remember { mutableStateOf(peliculaToEdit?.numeroCapitulo?.toString() ?: "1") }
 
-        // Calculamos la miniatura dinámicamente basada en la URL del video
+        // Lista de series existentes del director (para el autocompletado)
+        var existingSeriesNames by remember { mutableStateOf<List<String>>(emptyList()) }
+        var isSeriesDropdownExpanded by remember { mutableStateOf(false) }
+
         val dynamicThumbnailUrl = remember(videoUrl) { getYoutubeThumbnail(videoUrl) }
 
         var isLoading by remember { mutableStateOf(false) }
         var directorInfo by remember { mutableStateOf<Director?>(null) }
         var isTituloError by remember { mutableStateOf(false) }
 
+        // Cargar datos
         LaunchedEffect(Unit) {
             val directorId = authRepository.getCurrentUserId()
             if (directorId != null) {
+                // 1. Cargar info del director
                 directorRepository.getDirector(directorId).collect { directorInfo = it }
+
+                // 2. Cargar sus películas para encontrar nombres de series existentes
+                peliculaRepository.getPeliculasByDirector(directorId).collect { peliculas ->
+                    existingSeriesNames = peliculas
+                        .filter { it.esSerie && it.nombreSerie.isNotBlank() }
+                        .map { it.nombreSerie }
+                        .distinct() // Eliminar duplicados
+                        .sorted()
+                }
             }
         }
 
@@ -102,61 +123,112 @@ data class UploadGuideScreen(val peliculaToEdit: Pelicula? = null) : Screen {
                 if (directorInfo == null) {
                     CircularProgressIndicator()
                 } else {
-                    // --- CAMPO URL DE VIDEO (Ahora va primero porque define la imagen) ---
+                    // --- URL VIDEO ---
                     OutlinedTextField(
                         value = videoUrl,
                         onValueChange = { videoUrl = it },
                         label = { Text("URL del Video (YouTube)") },
-                        placeholder = { Text("https://www.youtube.com/watch?v=...") },
+                        placeholder = { Text("https://youtube.com/...") },
                         modifier = Modifier.fillMaxWidth(),
-                        leadingIcon = { Icon(Icons.Default.Add, null) },
+                        leadingIcon = { Icon(Icons.Default.Info, null) },
                         singleLine = true
                     )
-
                     Spacer(Modifier.height(24.dp))
 
-                    // --- VISTA PREVIA DE LA CARÁTULA (Automática) ---
-                    Text("Vista previa de Carátula", style = MaterialTheme.typography.labelLarge)
-                    Spacer(Modifier.height(8.dp))
-
-                    OutlinedCard(
-                        modifier = Modifier
-                            .height(200.dp)
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(12.dp)),
-                    ) {
+                    // --- CARÁTULA ---
+                    OutlinedCard(modifier = Modifier.height(180.dp).fillMaxWidth().clip(RoundedCornerShape(12.dp))) {
                         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                             if (dynamicThumbnailUrl.isNotEmpty()) {
-                                AsyncImage(
-                                    model = dynamicThumbnailUrl,
-                                    contentDescription = "Carátula de YouTube",
-                                    contentScale = ContentScale.Crop,
-                                    modifier = Modifier.fillMaxSize()
-                                )
-                                // Capa oscura pequeña para que se lea el texto si la imagen es clara
-                                Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.2f)))
+                                AsyncImage(model = dynamicThumbnailUrl, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
                             } else {
                                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Icon(Icons.Default.Build, null, modifier = Modifier.size(40.dp), tint = Color.Gray)
-                                    Spacer(Modifier.height(8.dp))
-                                    Text("Pega un link de YouTube para ver la imagen", color = Color.Gray)
+                                    Icon(Icons.Default.KeyboardArrowUp, null, tint = Color.Gray)
+                                    Text("Vista previa", color = Color.Gray)
                                 }
                             }
                         }
                     }
-
                     Spacer(Modifier.height(24.dp))
 
-                    // --- Resto del Formulario ---
+                    // --- SWITCH SERIE ---
+                    Row(
+                        modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f), RoundedCornerShape(8.dp)).padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column {
+                            Text("¿Es un episodio de Serie?", style = MaterialTheme.typography.titleMedium)
+                            Text("Activa esto para agrupar capítulos", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                        }
+                        Switch(checked = esSerie, onCheckedChange = { esSerie = it })
+                    }
+                    Spacer(Modifier.height(16.dp))
+
+                    // --- CAMPOS ESPECÍFICOS DE SERIE ---
+                    if (esSerie) {
+                        // 1. Nombre de la Serie (Autocomplete)
+                        ExposedDropdownMenuBox(
+                            expanded = isSeriesDropdownExpanded,
+                            onExpandedChange = { isSeriesDropdownExpanded = it }
+                        ) {
+                            OutlinedTextField(
+                                value = nombreSerie,
+                                onValueChange = {
+                                    nombreSerie = it
+                                    isSeriesDropdownExpanded = true
+                                },
+                                label = { Text("Nombre de la Serie") },
+                                placeholder = { Text("Ej: Stranger Things") },
+                                modifier = Modifier.fillMaxWidth().menuAnchor(),
+                                trailingIcon = {
+                                    Icon(if (isSeriesDropdownExpanded) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown, null)
+                                }
+                            )
+
+                            // Mostrar sugerencias solo si hay coincidencias
+                            if (existingSeriesNames.isNotEmpty()) {
+                                ExposedDropdownMenu(
+                                    expanded = isSeriesDropdownExpanded,
+                                    onDismissRequest = { isSeriesDropdownExpanded = false }
+                                ) {
+                                    existingSeriesNames.filter { it.contains(nombreSerie, ignoreCase = true) }.forEach { serieName ->
+                                        DropdownMenuItem(
+                                            text = { Text(serieName) },
+                                            onClick = {
+                                                nombreSerie = serieName
+                                                isSeriesDropdownExpanded = false
+                                            }
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                        Spacer(Modifier.height(16.dp))
+
+                        // 2. Número de Capítulo
+                        OutlinedTextField(
+                            value = numeroCapitulo,
+                            onValueChange = { if (it.all { char -> char.isDigit() }) numeroCapitulo = it },
+                            label = { Text("Número de Capítulo") },
+                            modifier = Modifier.fillMaxWidth(),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                        )
+                        Spacer(Modifier.height(16.dp))
+                        Divider()
+                        Spacer(Modifier.height(16.dp))
+                    }
+
+                    // --- TÍTULO (Del capítulo o película) ---
                     OutlinedTextField(
                         value = titulo,
                         onValueChange = { titulo = it; isTituloError = false },
-                        label = { Text("Título") },
+                        label = { Text(if (esSerie) "Nombre del Episodio" else "Título de la Película") },
                         modifier = Modifier.fillMaxWidth(),
                         isError = isTituloError
                     )
                     Spacer(Modifier.height(16.dp))
 
+                    // --- AÑO y GÉNERO ---
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                         OutlinedTextField(
                             value = anio,
@@ -165,12 +237,24 @@ data class UploadGuideScreen(val peliculaToEdit: Pelicula? = null) : Screen {
                             modifier = Modifier.weight(1f),
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                         )
-                        OutlinedTextField(
-                            value = genero,
-                            onValueChange = { genero = it },
-                            label = { Text("Género") },
+                        ExposedDropdownMenuBox(
+                            expanded = isGenreExpanded,
+                            onExpandedChange = { isGenreExpanded = !isGenreExpanded },
                             modifier = Modifier.weight(2f)
-                        )
+                        ) {
+                            OutlinedTextField(
+                                value = genero,
+                                onValueChange = {}, readOnly = true,
+                                label = { Text("Género") },
+                                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = isGenreExpanded) },
+                                modifier = Modifier.menuAnchor().fillMaxWidth()
+                            )
+                            ExposedDropdownMenu(expanded = isGenreExpanded, onDismissRequest = { isGenreExpanded = false }) {
+                                genresList.forEach { selection ->
+                                    DropdownMenuItem(text = { Text(selection) }, onClick = { genero = selection; isGenreExpanded = false })
+                                }
+                            }
+                        }
                     }
                     Spacer(Modifier.height(16.dp))
 
@@ -180,32 +264,23 @@ data class UploadGuideScreen(val peliculaToEdit: Pelicula? = null) : Screen {
                         label = { Text("Sinopsis") },
                         modifier = Modifier.fillMaxWidth().height(120.dp),
                     )
-                    Spacer(Modifier.height(16.dp))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text("¿Es una serie?", style = MaterialTheme.typography.bodyLarge)
-                        Switch(checked = esSerie, onCheckedChange = { esSerie = it })
-                    }
-
                     Spacer(Modifier.height(32.dp))
 
-                    // --- Botón Guardar ---
+                    // --- BOTÓN GUARDAR ---
                     LoadingButton(
                         onClick = {
-                            if (titulo.isBlank() || videoUrl.isBlank()) {
-                                scope.launch { snackbarController.showError("Título y Video son obligatorios") }
+                            if (titulo.isBlank() || videoUrl.isBlank() || genero.isBlank()) {
                                 isTituloError = titulo.isBlank()
+                                scope.launch { snackbarController.showError("Completa los campos obligatorios") }
+                                return@LoadingButton
+                            }
+                            if (esSerie && (nombreSerie.isBlank() || numeroCapitulo.isBlank())) {
+                                scope.launch { snackbarController.showError("Indica el nombre de la serie y el n° de capítulo") }
                                 return@LoadingButton
                             }
 
                             scope.launch {
                                 isLoading = true
-
-                                // Usamos la URL generada automáticamente
                                 val finalCaratulaUrl = getYoutubeThumbnail(videoUrl)
 
                                 val peliculaToSave = Pelicula(
@@ -217,24 +292,19 @@ data class UploadGuideScreen(val peliculaToEdit: Pelicula? = null) : Screen {
                                     genero = genero,
                                     sinopsis = sinopsis,
                                     videoUrl = videoUrl,
-                                    caratulaUrl = finalCaratulaUrl, // Guardamos la URL de img.youtube.com
-                                    esSerie = esSerie
+                                    caratulaUrl = finalCaratulaUrl,
+                                    esSerie = esSerie,
+                                    nombreSerie = if (esSerie) nombreSerie.trim() else "", // Nuevo campo
+                                    numeroCapitulo = if (esSerie) numeroCapitulo.toIntOrNull() ?: 1 else 0 // Nuevo campo
                                 )
 
-                                val result = if (peliculaToEdit != null) {
-                                    peliculaRepository.updatePelicula(peliculaToSave)
-                                } else {
-                                    peliculaRepository.createPelicula(peliculaToSave)
-                                }
+                                val result = if (peliculaToEdit != null) peliculaRepository.updatePelicula(peliculaToSave) else peliculaRepository.createPelicula(peliculaToSave)
 
                                 if (result.isSuccess) {
-                                    snackbarController.showSuccess(if (peliculaToEdit != null) "Actualizado con éxito" else "Subido con éxito")
-                                    if (peliculaToEdit == null) {
-                                        // Limpiar formulario
-                                        titulo = ""; anio = ""; genero = ""; sinopsis = ""; videoUrl = ""
-                                    } else {
-                                        navigator.pop()
-                                    }
+                                    snackbarController.showSuccess("Guardado con éxito")
+                                    if (peliculaToEdit == null) { // Reset
+                                        titulo = ""; videoUrl = ""; sinopsis = ""; nombreSerie = ""; numeroCapitulo = "1"
+                                    } else navigator.pop()
                                 } else {
                                     snackbarController.showError(translateError(result.exceptionOrNull()?.message))
                                 }
@@ -249,8 +319,5 @@ data class UploadGuideScreen(val peliculaToEdit: Pelicula? = null) : Screen {
         }
     }
 
-    /**
-     * Extrae el ID y construye la URL de la miniatura de alta calidad.
-     */
 
 }

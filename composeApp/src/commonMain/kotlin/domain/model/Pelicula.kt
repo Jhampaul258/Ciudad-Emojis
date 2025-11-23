@@ -13,6 +13,7 @@ data class Pelicula(
     val videoUrl: String = "", // Link de YouTube/Vimeo
     val caratulaUrl: String = "", // URL de la imagen de portada
     val esSerie: Boolean = false,
-    val episodios: List<Pelicula> = emptyList() // Si es una serie
+    val nombreSerie: String = "", // Ej: "Stranger Things" (Agrupador)
+    val numeroCapitulo: Int = 1   // Ej: 1
 ) {
 }
