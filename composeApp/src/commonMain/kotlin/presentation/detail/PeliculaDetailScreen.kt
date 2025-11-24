@@ -68,23 +68,36 @@ data class PeliculaDetailScreen(val pelicula: Pelicula) : Screen {
             }
         }
 
-        // Lógica de Recomendación
+        // --- Lógica de Recomendación con Agrupación y Límites ---
         val recomendaciones = remember(allPeliculasState, pelicula) {
+
+            // 1. PRIORIDAD: Si estamos viendo una serie, mostramos sus otros episodios
             if (pelicula.esSerie && pelicula.nombreSerie.isNotBlank()) {
                 val episodios = allPeliculasState.filter {
                     it.esSerie &&
                             it.nombreSerie.equals(pelicula.nombreSerie, ignoreCase = true) &&
                             it.id != pelicula.id
                 }.sortedBy { it.numeroCapitulo }
+                    .take(30) // LIMITAR: Máximo 30 episodios para no saturar
 
                 if (episodios.isNotEmpty()) return@remember episodios
             }
 
-            val delDirector = allPeliculasState.filter {
-                it.directorId == pelicula.directorId && it.id != pelicula.id
-            }
+            // 2. SECUNDARIO: Más contenido del mismo director
+            val delDirector = allPeliculasState
+                .filter { it.directorId == pelicula.directorId && it.id != pelicula.id }
+                // AGRUPAR: Si tiene otras series, mostrar solo una tarjeta por serie
+                .distinctBy { if (it.esSerie && it.nombreSerie.isNotBlank()) it.nombreSerie else it.id }
+                .take(10) // LIMITAR: Máximo 10 recomendaciones del director
 
-            if (delDirector.isNotEmpty()) delDirector else allPeliculasState.filter { it.id != pelicula.id }.shuffled().take(5)
+            if (delDirector.isNotEmpty()) return@remember delDirector
+
+            // 3. FALLBACK: Sugerencias generales
+            allPeliculasState
+                .filter { it.id != pelicula.id }
+                .distinctBy { if (it.esSerie && it.nombreSerie.isNotBlank()) it.nombreSerie else it.id }
+                .shuffled()
+                .take(5) // LIMITAR: Máximo 5 sugerencias
         }
 
         val tituloSeccion = remember(pelicula, recomendaciones) {
@@ -122,7 +135,6 @@ data class PeliculaDetailScreen(val pelicula: Pelicula) : Screen {
                 // 1. HEADER CON IMAGEN
                 item {
                     Box(Modifier.fillMaxWidth().height(300.dp)) {
-                        // SOLUCIÓN 1: Usamos key() para forzar la recomposición de la imagen
                         key(headerThumbnail) {
                             AsyncImage(
                                 model = headerThumbnail,
@@ -178,6 +190,7 @@ data class PeliculaDetailScreen(val pelicula: Pelicula) : Screen {
                     }
                 }
 
+
                 // 3. RECOMENDACIONES / OTROS EPISODIOS
                 if (recomendaciones.isNotEmpty()) {
                     item {
@@ -188,15 +201,13 @@ data class PeliculaDetailScreen(val pelicula: Pelicula) : Screen {
                             pelicula = itemRecomendado,
                             isSeriesContext = pelicula.esSerie && itemRecomendado.nombreSerie == pelicula.nombreSerie,
                             onClick = {
-                                // SOLUCIÓN 2: Usamos 'replace' en lugar de 'push'
-                                // Esto cierra la pantalla actual y abre la nueva. Al dar 'Atrás', vas al Home.
                                 navigator.replace(PeliculaDetailScreen(itemRecomendado))
                             }
                         )
                     }
                     item { Spacer(Modifier.height(24.dp)) }
                 }
-                // 4. SECCIÓN DE DONACIÓN (MOVIDA ANTES DE RECOMENDACIONES)
+                // 4. DONACIONES (MOVIDA ANTES DE RECOMENDACIONES)
                 if (directorData != null && (directorData!!.yapeQrUrl.isNotEmpty() || directorData!!.yapeNumero.isNotEmpty() || directorData!!.plinNumero.isNotEmpty())) {
                     item {
                         DonationCard(
@@ -326,17 +337,25 @@ fun RecommendationItem(pelicula: Pelicula, isSeriesContext: Boolean, onClick: ()
         }
         Spacer(Modifier.width(12.dp))
         Column(modifier = Modifier.fillMaxHeight(), verticalArrangement = Arrangement.Center) {
+            // Si estamos viendo una serie, resaltamos el número de capítulo
             if (isSeriesContext) {
                 Text("Capítulo ${pelicula.numeroCapitulo}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
             }
 
             Text(pelicula.titulo, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
 
+            // Si NO es contexto de serie (es recomendación de otro tipo), mostramos el nombre del director
             if (!isSeriesContext) {
                 Spacer(Modifier.height(4.dp))
-                Text(pelicula.directorName, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
+                // Si es una serie agrupada, mostramos el nombre de la serie como título secundario si es diferente al título principal
+                if (pelicula.esSerie && pelicula.nombreSerie.isNotBlank() && pelicula.nombreSerie != pelicula.titulo) {
+                    Text(pelicula.nombreSerie, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
+                } else {
+                    Text(pelicula.directorName, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
+                }
             }
 
-            Text(if (isSeriesContext) "${pelicula.anio}" else "${pelicula.anio} • ${pelicula.genero}", style = MaterialTheme.typography.labelSmall, color = Color.Gray)        }
+            Text(if (isSeriesContext) "${pelicula.anio}" else "${pelicula.anio} • ${pelicula.genero}", style = MaterialTheme.typography.labelSmall, color = Color.Gray)
+        }
     }
 }
