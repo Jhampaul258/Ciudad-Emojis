@@ -315,6 +315,7 @@ fun RecommendationItem(pelicula: Pelicula, isSeriesContext: Boolean, onClick: ()
             .padding(horizontal = 16.dp, vertical = 8.dp)
             .height(90.dp)
     ) {
+        // --- Miniatura (Izquierda) ---
         Box(
             modifier = Modifier
                 .width(140.dp)
@@ -335,27 +336,72 @@ fun RecommendationItem(pelicula: Pelicula, isSeriesContext: Boolean, onClick: ()
                 modifier = Modifier.align(Alignment.Center)
             )
         }
+
         Spacer(Modifier.width(12.dp))
+
+        // --- Información (Derecha) ---
         Column(modifier = Modifier.fillMaxHeight(), verticalArrangement = Arrangement.Center) {
-            // Si estamos viendo una serie, resaltamos el número de capítulo
+
+            // 1. Si estamos dentro de la lista de capítulos, mostramos el número
             if (isSeriesContext) {
-                Text("Capítulo ${pelicula.numeroCapitulo}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                Text(
+                    "Capítulo ${pelicula.numeroCapitulo}",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.primary
+                )
             }
 
-            Text(pelicula.titulo, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            // 2. Título inteligente (Nombre de Serie o Título de Episodio)
+            val tituloAMostrar = if (pelicula.esSerie && !isSeriesContext && pelicula.nombreSerie.isNotBlank()) {
+                pelicula.nombreSerie
+            } else {
+                pelicula.titulo
+            }
 
-            // Si NO es contexto de serie (es recomendación de otro tipo), mostramos el nombre del director
+            Text(
+                text = tituloAMostrar,
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+
             if (!isSeriesContext) {
                 Spacer(Modifier.height(4.dp))
-                // Si es una serie agrupada, mostramos el nombre de la serie como título secundario si es diferente al título principal
-                if (pelicula.esSerie && pelicula.nombreSerie.isNotBlank() && pelicula.nombreSerie != pelicula.titulo) {
-                    Text(pelicula.nombreSerie, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
-                } else {
-                    Text(pelicula.directorName, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
-                }
+                Text(
+                    pelicula.directorName,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.secondary
+                )
             }
 
-            Text(if (isSeriesContext) "${pelicula.anio}" else "${pelicula.anio} • ${pelicula.genero}", style = MaterialTheme.typography.labelSmall, color = Color.Gray)
+            // 3. Fila de Metadatos + ETIQUETA "SERIE"
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = if (isSeriesContext) "${pelicula.anio}" else "${pelicula.anio} • ${pelicula.genero}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Color.Gray
+                )
+
+                // --- AQUÍ ESTÁ EL CAMBIO ---
+                // Si es una serie y es una recomendación externa, mostramos la etiqueta.
+                if (pelicula.esSerie && !isSeriesContext) {
+                    Spacer(Modifier.width(6.dp))
+                    Surface(
+                        color = MaterialTheme.colorScheme.tertiaryContainer, // Color distintivo
+                        shape = RoundedCornerShape(4.dp),
+                    ) {
+                        Text(
+                            text = "SERIE",
+                            style = MaterialTheme.typography.labelSmall,
+                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
+                            color = MaterialTheme.colorScheme.onTertiaryContainer,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 8.sp // Un poco más pequeño para que sea sutil
+                        )
+                    }
+                }
+            }
         }
     }
 }

@@ -14,11 +14,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale // <--- IMPORTANTE
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
+import coil3.compose.AsyncImage // <--- IMPORTANTE
 import data.DirectorRepository
 import data.FirebaseAuthRepository
 import domain.model.Director
@@ -37,12 +39,9 @@ object SettingsScreen : Screen {
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
-
-
         val parentNavigator = navigator.parent ?: navigator
 
         val authRepository = remember { FirebaseAuthRepository() }
-
         val directorRepository = remember { DirectorRepository() }
         val scope = rememberCoroutineScope()
 
@@ -67,7 +66,7 @@ object SettingsScreen : Screen {
             }
         }
 
-        // 2. Lógica para determinar si una sección está completa... (esto estaba bien)
+        // Lógica de completado (sin cambios)
         val isBasicInfoComplete = director != null && director!!.name.isNotBlank() && director!!.universidad.isNotBlank()
         val isPresentationComplete = director != null && director!!.biografia.isNotBlank()
         val isRecognitionComplete = director != null && (director!!.festivales.isNotEmpty() || director!!.premios.isNotEmpty())
@@ -76,9 +75,7 @@ object SettingsScreen : Screen {
 
         Scaffold(
             topBar = {
-                TopAppBar(
-                    title = { Text("Mi Perfil") }
-                )
+                TopAppBar(title = { Text("Mi Perfil") })
             }
         ) { paddingValues ->
             if (isLoading) {
@@ -87,75 +84,37 @@ object SettingsScreen : Screen {
                 }
             } else if (directorId == null) {
                 Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(paddingValues)
-                        .padding(16.dp),
+                    modifier = Modifier.fillMaxSize().padding(paddingValues).padding(16.dp),
                     verticalArrangement = Arrangement.Center,
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text("No se pudo cargar el perfil.", color = MaterialTheme.colorScheme.error)
                     Spacer(Modifier.height(16.dp))
-                    // --- CORRECCIÓN AQUÍ ---
-                    // Pasamos el parentNavigator al botón de logout
                     LogoutButton(parentNavigator, authRepository, scope)
                 }
             } else {
-                // 3. Dibuja la UI principal... (esto estaba bien)
                 Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(paddingValues)
-                        .padding(16.dp),
+                    modifier = Modifier.fillMaxSize().padding(paddingValues).padding(16.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
+                    // --- Aquí llamamos al Header Actualizado ---
                     ProfileHeader(director)
+
                     Spacer(Modifier.height(24.dp))
 
                     Column(
                         modifier = Modifier.weight(1f),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        ProfileMenuItem(
-                            text = "Información Básica",
-                            isComplete = isBasicInfoComplete,
-                            onClick = {
-                                // --- INICIO DE LA CORRECCIÓN ---
-                                // ¡Usamos el parentNavigator para hacer push de la Screen!
-                                parentNavigator.push(BasicInfoEditScreen(directorId))
-                                // --- FIN DE LA CORRECCIÓN ---
-                            }
-                        )
-                        ProfileMenuItem(
-                            text = "Presentación del director",
-                            isComplete = isPresentationComplete,
-                            onClick = { parentNavigator.push(PresentationEditScreen(directorId))  }
-                        )
-                        ProfileMenuItem(
-                            text = "Reconocimientos y experiencias",
-                            isComplete = isRecognitionComplete,
-                            onClick = { parentNavigator.push(RecognitionEditScreen(directorId))  }
-                        )
-                        ProfileMenuItem(
-                            text = "Presencia Digital/ redes sociales",
-                            isComplete = isDigitalPresenceComplete,
-                            onClick = {  parentNavigator.push(DigitalPresenceEditScreen(directorId))  }
-                        )
-                        ProfileMenuItem(
-                            text = "Apoyo y Financiamiento",
-                            isComplete = isSupportComplete,
-                            onClick = { parentNavigator.push(SupportEditScreen(directorId))  }
-                        )
-                        ProfileMenuItem(
-                            text = "Mis Películas y Series",
-                            isComplete = isSupportComplete,
-                            onClick = { parentNavigator.push(DirectorContentScreen())  }
-                        )
+                        ProfileMenuItem("Información Básica", isBasicInfoComplete) { parentNavigator.push(BasicInfoEditScreen(directorId)) }
+                        ProfileMenuItem("Presentación del director", isPresentationComplete) { parentNavigator.push(PresentationEditScreen(directorId)) }
+                        ProfileMenuItem("Reconocimientos y experiencias", isRecognitionComplete) { parentNavigator.push(RecognitionEditScreen(directorId)) }
+                        ProfileMenuItem("Presencia Digital/ redes sociales", isDigitalPresenceComplete) { parentNavigator.push(DigitalPresenceEditScreen(directorId)) }
+                        ProfileMenuItem("Apoyo y Financiamiento", isSupportComplete) { parentNavigator.push(SupportEditScreen(directorId)) }
+                        ProfileMenuItem("Mis Películas y Series", isSupportComplete) { parentNavigator.push(DirectorContentScreen()) }
                     }
 
                     Spacer(Modifier.height(16.dp))
-                    // --- CORRECCIÓN AQUÍ ---
-                    // Pasamos el parentNavigator al botón de logout
                     LogoutButton(parentNavigator, authRepository, scope)
                 }
             }
@@ -164,11 +123,10 @@ object SettingsScreen : Screen {
 }
 
 /**
- * Composable extraído para el header del perfil (foto y nombre)
+ * Header del perfil actualizado para mostrar la foto de Google
  */
 @Composable
 private fun ProfileHeader(director: Director?) {
-    // ... (Sin cambios aquí)
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Box(
             modifier = Modifier
@@ -177,34 +135,35 @@ private fun ProfileHeader(director: Director?) {
                 .background(MaterialTheme.colorScheme.secondaryContainer),
             contentAlignment = Alignment.Center
         ) {
-            Text(
-                text = director?.name?.firstOrNull()?.toString() ?: "P",
-                style = MaterialTheme.typography.headlineLarge
-            )
+            // VERIFICAMOS SI HAY FOTO DE PERFIL
+            if (!director?.fotoPerfilUrl.isNullOrBlank()) {
+                AsyncImage(
+                    model = director!!.fotoPerfilUrl,
+                    contentDescription = "Foto de perfil",
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop
+                )
+            } else {
+                // Si no hay foto, mostramos la inicial como antes
+                Text(
+                    text = director?.name?.firstOrNull()?.toString() ?: "P",
+                    style = MaterialTheme.typography.headlineLarge
+                )
+            }
         }
         Spacer(Modifier.height(8.dp))
         Text(
-            text = director?.name ?: "Foto Perfil",
+            text = director?.name ?: "Usuario",
             style = MaterialTheme.typography.headlineSmall,
             fontWeight = FontWeight.Bold
         )
     }
 }
 
-/**
- * Composable extraído para cada item de la lista (ej: "Información Básica")
- */
 @Composable
-private fun ProfileMenuItem(
-    text: String,
-    isComplete: Boolean,
-    onClick: () -> Unit
-) {
-    // ... (Sin cambios aquí)
+private fun ProfileMenuItem(text: String, isComplete: Boolean, onClick: () -> Unit) {
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick),
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
         shape = RoundedCornerShape(12.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
@@ -230,17 +189,8 @@ private fun ProfileMenuItem(
     }
 }
 
-/**
- * Composable extraído para la lógica del botón de cerrar sesión
- */
 @Composable
-private fun LogoutButton(
-    // --- CORRECCIÓN AQUÍ ---
-    // Aseguramos que el tipo sea el Navigator genérico
-    navigator: cafe.adriel.voyager.navigator.Navigator,
-    authRepository: FirebaseAuthRepository,
-    scope: CoroutineScope
-) {
+private fun LogoutButton(navigator: cafe.adriel.voyager.navigator.Navigator, authRepository: FirebaseAuthRepository, scope: CoroutineScope) {
     Button(
         onClick = {
             scope.launch {
