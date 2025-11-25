@@ -88,7 +88,7 @@ data class PeliculaDetailScreen(val pelicula: Pelicula) : Screen {
                 .filter { it.directorId == pelicula.directorId && it.id != pelicula.id }
                 // AGRUPAR: Si tiene otras series, mostrar solo una tarjeta por serie
                 .distinctBy { if (it.esSerie && it.nombreSerie.isNotBlank()) it.nombreSerie else it.id }
-                .take(10) // LIMITAR: Máximo 10 recomendaciones del director
+                .take(6) // LIMITAR: Máximo 10 recomendaciones del director
 
             if (delDirector.isNotEmpty()) return@remember delDirector
 

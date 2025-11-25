@@ -12,9 +12,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import utils.getYoutubeThumbnail
 
-// Estado único de la UI (Single Source of Truth)
 data class UploadUiState(
-    // Campos del formulario
     val titulo: String = "",
     val anio: String = "",
     val genero: String = "",
@@ -23,23 +21,21 @@ data class UploadUiState(
     val esSerie: Boolean = false,
     val nombreSerie: String = "",
     val numeroCapitulo: String = "1",
-
-    // Estado derivado
     val thumbnailPreview: String = "",
 
-    // Listas y datos de control
-    val existingSeries: List<String> = emptyList(), // Para el autocomplete
+    val existingSeries: List<String> = emptyList(),
     val directorId: String = "",
     val directorName: String = "",
 
-    // Estados de carga/error
     val isLoading: Boolean = false,
     val error: String? = null,
-    val isSuccess: Boolean = false
+
+    // CAMBIO: En lugar de un booleano, guardamos la película creada para poder navegar a ella
+    val successPelicula: Pelicula? = null
 )
 
 class UploadViewModel(
-    private val peliculaToEdit: Pelicula?, // Null si es nuevo, Objeto si es edición
+    private val peliculaToEdit: Pelicula?,
     private val peliculaRepository: PeliculaRepository = PeliculaRepository(),
     private val authRepository: FirebaseAuthRepository = FirebaseAuthRepository(),
     private val directorRepository: DirectorRepository = DirectorRepository()
@@ -56,15 +52,12 @@ class UploadViewModel(
         screenModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
 
-            // 1. Obtener usuario actual
             val uid = authRepository.getCurrentUserId()
             if (uid != null) {
-                // Cargar nombre del director
                 directorRepository.getDirector(uid).collect { director ->
                     _uiState.update { it.copy(directorId = uid, directorName = director?.name ?: "") }
                 }
 
-                // Cargar lista de series para el autocomplete
                 peliculaRepository.getPeliculasByDirector(uid).collect { peliculas ->
                     val series = peliculas
                         .filter { it.esSerie && it.nombreSerie.isNotBlank() }
@@ -75,7 +68,6 @@ class UploadViewModel(
                 }
             }
 
-            // 2. Si estamos editando, rellenar el formulario
             if (peliculaToEdit != null) {
                 _uiState.update { state ->
                     state.copy(
@@ -91,52 +83,32 @@ class UploadViewModel(
                     )
                 }
             }
-
             _uiState.update { it.copy(isLoading = false) }
         }
     }
 
-    // --- Setters para la UI ---
-    fun onTituloChange(value: String) { _uiState.update { it.copy(titulo = value) } }
-    fun onAnioChange(value: String) { _uiState.update { it.copy(anio = value) } }
-    fun onGeneroChange(value: String) { _uiState.update { it.copy(genero = value) } }
-    fun onSinopsisChange(value: String) { _uiState.update { it.copy(sinopsis = value) } }
+    // --- Setters (Igual que antes) ---
+    fun onTituloChange(v: String) { _uiState.update { it.copy(titulo = v) } }
+    fun onAnioChange(v: String) { _uiState.update { it.copy(anio = v) } }
+    fun onGeneroChange(v: String) { _uiState.update { it.copy(genero = v) } }
+    fun onSinopsisChange(v: String) { _uiState.update { it.copy(sinopsis = v) } }
+    fun onVideoUrlChange(v: String) { _uiState.update { it.copy(videoUrl = v, thumbnailPreview = getYoutubeThumbnail(v)) } }
+    fun onEsSerieChange(v: Boolean) { _uiState.update { it.copy(esSerie = v) } }
+    fun onNombreSerieChange(v: String) { _uiState.update { it.copy(nombreSerie = v) } }
+    fun onNumeroCapituloChange(v: String) { if (v.all { it.isDigit() }) _uiState.update { it.copy(numeroCapitulo = v) } }
 
-    fun onVideoUrlChange(value: String) {
-        _uiState.update {
-            it.copy(
-                videoUrl = value,
-                thumbnailPreview = getYoutubeThumbnail(value) // Actualizar preview automáticamente
-            )
-        }
-    }
-
-    fun onEsSerieChange(value: Boolean) { _uiState.update { it.copy(esSerie = value) } }
-    fun onNombreSerieChange(value: String) { _uiState.update { it.copy(nombreSerie = value) } }
-    fun onNumeroCapituloChange(value: String) {
-        if (value.all { it.isDigit() }) _uiState.update { it.copy(numeroCapitulo = value) }
-    }
-
-    // --- Lógica de Guardado ---
     fun submitContent() {
         val state = _uiState.value
-
-        // 1. Validaciones
         if (state.titulo.isBlank() || state.videoUrl.isBlank() || state.genero.isBlank()) {
-            _uiState.update { it.copy(error = "Título, Video y Género son obligatorios") }
-            return
-        }
-        if (state.esSerie && (state.nombreSerie.isBlank() || state.numeroCapitulo.isBlank())) {
-            _uiState.update { it.copy(error = "Completa los datos de la serie") }
+            _uiState.update { it.copy(error = "Campos obligatorios vacíos") }
             return
         }
 
         screenModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
 
-            // 2. Construir objeto
-            val pelicula = Pelicula(
-                id = peliculaToEdit?.id ?: "", // Mantener ID si es edición
+            val peliculaBase = Pelicula(
+                id = peliculaToEdit?.id ?: "",
                 directorId = state.directorId,
                 directorName = state.directorName,
                 titulo = state.titulo,
@@ -144,26 +116,35 @@ class UploadViewModel(
                 genero = state.genero,
                 sinopsis = state.sinopsis,
                 videoUrl = state.videoUrl,
-                caratulaUrl = state.thumbnailPreview, // Usamos la generada de YouTube
+                caratulaUrl = state.thumbnailPreview,
                 esSerie = state.esSerie,
                 nombreSerie = if (state.esSerie) state.nombreSerie.trim() else "",
                 numeroCapitulo = if (state.esSerie) state.numeroCapitulo.toIntOrNull() ?: 1 else 0
             )
 
-            // 3. Guardar en Firebase
             val result = if (peliculaToEdit != null) {
-                peliculaRepository.updatePelicula(pelicula)
+                peliculaRepository.updatePelicula(peliculaBase)
             } else {
-                peliculaRepository.createPelicula(pelicula)
+                peliculaRepository.createPelicula(peliculaBase)
             }
 
             if (result.isSuccess) {
-                _uiState.update { it.copy(isLoading = false, isSuccess = true) }
+                val savedPelicula = result.getOrThrow()
+                // CAMBIO IMPORTANTE: Limpiamos campos y guardamos la película resultante para navegar
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        successPelicula = savedPelicula, // Esto disparará la navegación
+                        // Limpiar formulario
+                        titulo = "", anio = "", genero = "", sinopsis = "", videoUrl = "", thumbnailPreview = ""
+                    )
+                }
             } else {
-                _uiState.update { it.copy(isLoading = false, error = result.exceptionOrNull()?.message ?: "Error desconocido") }
+                _uiState.update { it.copy(isLoading = false, error = result.exceptionOrNull()?.message) }
             }
         }
     }
 
+    fun resetSuccessState() { _uiState.update { it.copy(successPelicula = null) } }
     fun clearError() { _uiState.update { it.copy(error = null) } }
 }
