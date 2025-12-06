@@ -112,7 +112,19 @@ object LoginScreen : Screen {
                     }
                 }
                 Spacer(modifier = Modifier.height(25.dp))
+                // --- NUEVO BOTÓN DE INVITADO ---
+                TextButton(
+                    onClick = {
+                        // Navegamos directamente al MainScreen sin autenticar.
+                        // Como no hay usuario en Firebase, los repositorios devolverán null en currentUser.
+                        navigator.replaceAll(MainScreen)
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Ingresar como invitado", color = MaterialTheme.colorScheme.secondary)
+                }
 
+                Spacer(modifier = Modifier.height(25.dp))
             }
         }
     }
