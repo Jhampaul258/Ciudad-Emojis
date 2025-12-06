@@ -100,7 +100,7 @@ data class SupportEditScreen(val directorId: String) : Screen {
                         initialDirectorData = director
                         yapeNumero = director.yapeNumero
                         plinNumero = director.plinNumero
-                        yapeQrUrl = director.yapeQrUrl // URL guardada en Firestore
+                        yapeQrUrl = director.yapeQrUrl
                         errorMessage = null
                     } else {
                         errorMessage = "No se encontró la información."

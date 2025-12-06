@@ -103,16 +103,70 @@ class UploadViewModel(
             _uiState.update { it.copy(error = "Campos obligatorios vacíos") }
             return
         }
+        // Validación de URL de YouTube (Regex)
+        if (getYoutubeThumbnail(state.videoUrl).isEmpty()) {
+            _uiState.update { it.copy(error = "El enlace no es un video válido de YouTube") }
+            return
+        }
+
+        if (state.esSerie && (state.nombreSerie.isBlank() || state.numeroCapitulo.isBlank())) {
+            _uiState.update { it.copy(error = "Completa el nombre de la serie y el capítulo") }
+            return
+        }
+
+        // Validación de Año lógico
+        val anioInt = state.anio.toIntOrNull()
+        if (anioInt == null || anioInt < 1900 || anioInt > 2030) { // Ajusta el año según criterio
+            _uiState.update { it.copy(error = "Ingresa un año válido (ej: 2024)") }
+            return
+        }
+        if (state.sinopsis.length > 1000) {
+            _uiState.update { it.copy(error = "La sinopsis es demasiado larga (máx 1000 caracteres)") }
+            return
+        }
 
         screenModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
+            val shouldCheckUrl = peliculaToEdit == null || peliculaToEdit.videoUrl != state.videoUrl
 
-            val peliculaBase = Pelicula(
+            if (shouldCheckUrl) {
+                val urlExists = peliculaRepository.existsVideoUrl(state.videoUrl)
+                if (urlExists) {
+                    _uiState.update { it.copy(isLoading = false, error = "Este video ya ha sido registrado previamente.") }
+                    return@launch
+                }
+            }
+
+            // B. Validar Capítulo Duplicado (Por Serie y Director)
+            if (state.esSerie) {
+                val capNumero = state.numeroCapitulo.toIntOrNull() ?: 0
+                // Solo verificamos si cambiamos de capítulo/serie o si es nuevo
+                val shouldCheckChapter = peliculaToEdit == null ||
+                        peliculaToEdit.nombreSerie != state.nombreSerie ||
+                        peliculaToEdit.numeroCapitulo != capNumero
+
+                if (shouldCheckChapter) {
+                    val chapterExists = peliculaRepository.existsChapter(
+                        directorId = state.directorId,
+                        nombreSerie = state.nombreSerie.trim(),
+                        numeroCapitulo = capNumero
+                    )
+
+                    if (chapterExists) {
+                        _uiState.update {
+                            it.copy(isLoading = false, error = "El capítulo $capNumero de '${state.nombreSerie}' ya existe.")
+                        }
+                        return@launch
+                    }
+                }
+            }
+            val pelicula = Pelicula(
+                // ... tus datos ...
                 id = peliculaToEdit?.id ?: "",
                 directorId = state.directorId,
                 directorName = state.directorName,
                 titulo = state.titulo,
-                anio = state.anio.toIntOrNull() ?: 2024,
+                anio = anioInt, // Usamos el int validado
                 genero = state.genero,
                 sinopsis = state.sinopsis,
                 videoUrl = state.videoUrl,
@@ -123,9 +177,9 @@ class UploadViewModel(
             )
 
             val result = if (peliculaToEdit != null) {
-                peliculaRepository.updatePelicula(peliculaBase)
+                peliculaRepository.updatePelicula(pelicula)
             } else {
-                peliculaRepository.createPelicula(peliculaBase)
+                peliculaRepository.createPelicula(pelicula)
             }
 
             if (result.isSuccess) {

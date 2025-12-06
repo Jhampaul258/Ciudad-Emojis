@@ -47,20 +47,18 @@ data class BasicInfoEditScreen(val directorId: String) : Screen {
 
         var isSaving by remember { mutableStateOf(false) }
 
-        // Efecto para cargar los datos del director una sola vez
         LaunchedEffect(directorId) {
             isLoadingData = true
-            try { // Añadimos try-catch para manejar errores de carga
+            try {
                 directorRepository.getDirector(directorId).collect { director ->
                     if (director != null) {
                         initialDirectorData = director
-                        // Inicializa los estados del formulario con los datos cargados
                         name = director.name
                         ciudadOrigen = director.ciudadOrigen
                         universidad = director.universidad
                         carrera = director.carrera
                         fotoPerfilUrl = director.fotoPerfilUrl
-                        errorMessage = null // Limpia errores previos si carga bien
+                        errorMessage = null
                     } else {
                         errorMessage = "No se encontró la información del director."
                     }

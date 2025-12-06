@@ -147,6 +147,8 @@ data class UploadGuideScreen(val peliculaToEdit: Pelicula? = null) : Screen {
                                 onValueChange = { viewModel.onNombreSerieChange(it); isSeriesDropdownExpanded = true },
                                 label = { Text("Nombre de la Serie") },
                                 modifier = Modifier.fillMaxWidth().menuAnchor(),
+                                singleLine = true,
+
                                 trailingIcon = { Icon(if (isSeriesDropdownExpanded) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown, null) }
                             )
                             if (state.existingSeries.isNotEmpty()) {
@@ -162,6 +164,8 @@ data class UploadGuideScreen(val peliculaToEdit: Pelicula? = null) : Screen {
                             value = state.numeroCapitulo,
                             onValueChange = { viewModel.onNumeroCapituloChange(it) },
                             label = { Text("N° Capítulo") },
+                            singleLine = true,
+
                             modifier = Modifier.fillMaxWidth(),
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                         )
@@ -173,6 +177,8 @@ data class UploadGuideScreen(val peliculaToEdit: Pelicula? = null) : Screen {
                     OutlinedTextField(
                         value = state.titulo,
                         onValueChange = { viewModel.onTituloChange(it) },
+                        singleLine = true,
+
                         label = { Text(if (state.esSerie) "Nombre del Episodio" else "Título de la Película") },
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -183,6 +189,8 @@ data class UploadGuideScreen(val peliculaToEdit: Pelicula? = null) : Screen {
                             value = state.anio,
                             onValueChange = { viewModel.onAnioChange(it) },
                             label = { Text("Año") },
+                            singleLine = true,
+
                             modifier = Modifier.weight(1f),
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                         )
@@ -208,7 +216,9 @@ data class UploadGuideScreen(val peliculaToEdit: Pelicula? = null) : Screen {
                         onValueChange = { viewModel.onSinopsisChange(it) },
                         label = { Text("Sinopsis") },
                         modifier = Modifier.fillMaxWidth().height(120.dp),
-                    )
+                        singleLine = true,
+
+                        )
                     Spacer(Modifier.height(32.dp))
 
                     LoadingButton(

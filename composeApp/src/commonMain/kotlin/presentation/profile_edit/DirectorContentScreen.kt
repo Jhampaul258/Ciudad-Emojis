@@ -8,9 +8,9 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Build
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Face
-import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.PlayArrow
 
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -21,41 +21,75 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import cafe.adriel.voyager.core.model.rememberScreenModel
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import coil3.compose.AsyncImage
-import data.FirebaseAuthRepository
-import data.PeliculaRepository
 import domain.model.Pelicula
+import presentation.components.ReusableSnackbarHost
+import presentation.components.rememberSnackbarController
 import presentation.guide.UploadGuideScreen
+import kotlinx.coroutines.launch
 import utils.getYoutubeThumbnail
 
 class DirectorContentScreen : Screen {
+
     @OptIn(ExperimentalMaterial3Api::class)
     @Composable
     override fun Content() {
+        // 1. Inyectamos ViewModel
+        val viewModel = rememberScreenModel { DirectorContentViewModel() }
+        val state by viewModel.uiState.collectAsState()
+
         val navigator = LocalNavigator.currentOrThrow
-        val authRepository = remember { FirebaseAuthRepository() }
-        val peliculaRepository = remember { PeliculaRepository() }
+        val snackbarController = rememberSnackbarController()
+        val scope = rememberCoroutineScope()
 
-        var myContent by remember { mutableStateOf<List<Pelicula>>(emptyList()) }
-        var isLoading by remember { mutableStateOf(true) }
-
-        // Estado para las pestañas (0 = Películas, 1 = Series)
+        // Estado para Tabs
         var selectedTabIndex by remember { mutableStateOf(0) }
         val tabs = listOf("Películas", "Series")
 
-        LaunchedEffect(Unit) {
-            val directorId = authRepository.getCurrentUserId()
-            if (directorId != null) {
-                peliculaRepository.getPeliculasByDirector(directorId).collect {
-                    myContent = it
-                    isLoading = false
-                }
-            } else {
-                isLoading = false
+        // Estado para el Diálogo de Eliminación
+        var peliculaToDelete by remember { mutableStateOf<Pelicula?>(null) }
+
+        // Manejo de Mensajes (Éxito/Error)
+        LaunchedEffect(state.successMessage) {
+            state.successMessage?.let {
+                snackbarController.showSuccess(it)
+                viewModel.clearMessages()
             }
+        }
+        LaunchedEffect(state.error) {
+            state.error?.let {
+                snackbarController.showError(it)
+                viewModel.clearMessages()
+            }
+        }
+
+        // --- DIÁLOGO DE CONFIRMACIÓN ---
+        if (peliculaToDelete != null) {
+            AlertDialog(
+                onDismissRequest = { peliculaToDelete = null },
+                title = { Text("¿Eliminar contenido?") },
+                text = { Text("¿Estás seguro de que quieres eliminar '${peliculaToDelete?.titulo}'? Esta acción no se puede deshacer.") },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            viewModel.deletePelicula(peliculaToDelete!!)
+                            peliculaToDelete = null
+                        },
+                        colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                    ) {
+                        Text("Eliminar")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { peliculaToDelete = null }) {
+                        Text("Cancelar")
+                    }
+                }
+            )
         }
 
         Scaffold(
@@ -68,44 +102,37 @@ class DirectorContentScreen : Screen {
                         }
                     }
                 )
-            }
+            },
+            snackbarHost = { ReusableSnackbarHost(snackbarController) }
         ) { padding ->
             Column(modifier = Modifier.padding(padding)) {
 
-                // --- Pestañas ---
+                // Tabs
                 TabRow(selectedTabIndex = selectedTabIndex) {
                     tabs.forEachIndexed { index, title ->
                         Tab(
                             selected = selectedTabIndex == index,
                             onClick = { selectedTabIndex = index },
                             text = { Text(title) },
-                            icon = {
-                                Icon(if (index == 0) Icons.Default.Info else Icons.Default.Face, null)
-                            }
+                            icon = { Icon(if (index == 0) Icons.Default.Build else Icons.Default.PlayArrow, null) }
                         )
                     }
                 }
 
-                // --- Lista Filtrada ---
-                if (isLoading) {
-                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator()
-                    }
+                if (state.isLoading) {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
                 } else {
-                    // Filtramos según la pestaña seleccionada
-                    val filteredContent = myContent.filter {
+                    // Filtrar contenido
+                    val filteredContent = state.myContent.filter {
                         if (selectedTabIndex == 0) !it.esSerie else it.esSerie
                     }
 
                     if (filteredContent.isEmpty()) {
                         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Icon(Icons.Default.Build, null, tint = Color.LightGray, modifier = Modifier.size(64.dp))
+                                Icon(Icons.Default.Edit, null, tint = Color.LightGray, modifier = Modifier.size(64.dp))
                                 Spacer(Modifier.height(16.dp))
-                                Text(
-                                    "No has subido ${tabs[selectedTabIndex].lowercase()} aún.",
-                                    color = Color.Gray
-                                )
+                                Text("No has subido ${tabs[selectedTabIndex].lowercase()} aún.", color = Color.Gray)
                             }
                         }
                     } else {
@@ -116,10 +143,8 @@ class DirectorContentScreen : Screen {
                             items(filteredContent) { item ->
                                 DirectorContentItem(
                                     pelicula = item,
-                                    onEditClick = {
-                                        // Navegamos a la pantalla de edición con los datos
-                                        navigator.push(UploadGuideScreen(peliculaToEdit = item))
-                                    }
+                                    onEditClick = { navigator.push(UploadGuideScreen(peliculaToEdit = item)) },
+                                    onDeleteClick = { peliculaToDelete = item } // Activamos el diálogo
                                 )
                             }
                         }
@@ -131,8 +156,11 @@ class DirectorContentScreen : Screen {
 }
 
 @Composable
-fun DirectorContentItem(pelicula: Pelicula, onEditClick: () -> Unit) {
-    // Calculamos la miniatura en vivo basándonos en el link del video
+fun DirectorContentItem(
+    pelicula: Pelicula,
+    onEditClick: () -> Unit,
+    onDeleteClick: () -> Unit // Nuevo callback
+) {
     val thumbnailUrl = remember(pelicula.videoUrl) { getYoutubeThumbnail(pelicula.videoUrl) }
 
     Card(
@@ -143,35 +171,27 @@ fun DirectorContentItem(pelicula: Pelicula, onEditClick: () -> Unit) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(100.dp) // Altura fija para la tarjeta
+                .height(100.dp)
                 .clickable { onEditClick() }
         ) {
-            // --- Imagen Miniatura (Desde YouTube) ---
+            // Imagen
             Box(
-                modifier = Modifier
-                    .width(140.dp) // Más ancho para formato 16:9 de YouTube
-                    .fillMaxHeight()
-                    .background(Color.Black),
+                modifier = Modifier.width(140.dp).fillMaxHeight().background(Color.Black),
                 contentAlignment = Alignment.Center
             ) {
                 if (thumbnailUrl.isNotEmpty()) {
                     AsyncImage(
-                        model = thumbnailUrl,
-                        contentDescription = null,
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Crop
+                        model = thumbnailUrl, contentDescription = null,
+                        modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop
                     )
                 } else {
-                    // Si no hay link válido, mostramos icono
-                    Icon(Icons.Default.Build, null, tint = Color.White)
+                    Icon(Icons.Default.Delete, null, tint = Color.White)
                 }
             }
 
-            // --- Textos ---
+            // Textos
             Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(12.dp),
+                modifier = Modifier.weight(1f).padding(12.dp),
                 verticalArrangement = Arrangement.Center
             ) {
                 Text(
@@ -182,25 +202,32 @@ fun DirectorContentItem(pelicula: Pelicula, onEditClick: () -> Unit) {
                     overflow = TextOverflow.Ellipsis
                 )
                 Spacer(Modifier.height(4.dp))
+
+                // Mostrar Info extra si es serie
+                val extraInfo = if(pelicula.esSerie) " • ${pelicula.nombreSerie}" else ""
+
                 Text(
-                    text = "${pelicula.anio} • ${pelicula.genero}",
+                    text = "${pelicula.anio} • ${pelicula.genero}$extraInfo",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.secondary
+                    color = MaterialTheme.colorScheme.secondary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
 
-            // --- Botón Editar ---
-            IconButton(
-                onClick = onEditClick,
-                modifier = Modifier.align(Alignment.CenterVertically)
+            // Botones de Acción (Columna vertical para Edit y Delete)
+            Column(
+                modifier = Modifier.fillMaxHeight(),
+                verticalArrangement = Arrangement.SpaceEvenly
             ) {
-                Icon(Icons.Default.Edit, "Editar", tint = MaterialTheme.colorScheme.primary)
+                IconButton(onClick = onEditClick) {
+                    Icon(Icons.Default.Edit, "Editar", tint = MaterialTheme.colorScheme.primary)
+                }
+                IconButton(onClick = onDeleteClick) {
+                    Icon(Icons.Default.Delete, "Eliminar", tint = MaterialTheme.colorScheme.error)
+                }
             }
         }
     }
 }
 
-/**
- * Función auxiliar para obtener la URL de la miniatura de YouTube.
- * (Duplicada aquí para asegurar que la lista funcione independiente)
- */

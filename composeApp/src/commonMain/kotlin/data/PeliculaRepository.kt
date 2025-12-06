@@ -50,4 +50,40 @@ class PeliculaRepository {
             .snapshots()
             .map { snapshot -> snapshot.documents.map { it.data<Pelicula>() } }
     }
+    /**
+     * Verifica si una URL ya existe en TODA la base de datos (global).
+     * Retorna true si existe, false si está libre.
+     */
+    suspend fun existsVideoUrl(videoUrl: String): Boolean {
+        return try {
+            val snapshot = peliculasCollection.where { "videoUrl" equalTo videoUrl }.get()
+            snapshot.documents.isNotEmpty()
+        } catch (e: Exception) {
+            false // Si falla la conexión, asumimos false para no bloquear (o manejar error)
+        }
+    }
+
+    /**
+     * Verifica si ya existe un capítulo específico para una serie de un director.
+     */
+    suspend fun existsChapter(directorId: String, nombreSerie: String, numeroCapitulo: Int): Boolean {
+        return try {
+            val snapshot = peliculasCollection
+                .where { "directorId" equalTo directorId }
+                .where { "nombreSerie" equalTo nombreSerie }
+                .where { "numeroCapitulo" equalTo numeroCapitulo }
+                .get()
+            snapshot.documents.isNotEmpty()
+        } catch (e: Exception) {
+            false
+        }
+    }
+    suspend fun deletePelicula(peliculaId: String): Result<Unit> {
+        return try {
+            peliculasCollection.document(peliculaId).delete()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
 }

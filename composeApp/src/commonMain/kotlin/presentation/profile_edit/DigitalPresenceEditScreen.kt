@@ -49,14 +49,12 @@ data class DigitalPresenceEditScreen(val directorId: String) : Screen {
 
         var isSaving by remember { mutableStateOf(false) }
 
-        // Efecto para cargar los datos del director
         LaunchedEffect(directorId) {
             isLoadingData = true
             try {
                 directorRepository.getDirector(directorId).collect { director ->
                     if (director != null) {
                         initialDirectorData = director
-                        // Inicializa los estados del formulario con los datos cargados
                         canalYoutube = director.canalYoutube
                         email = director.email
                         redesSociales = director.redesSociales

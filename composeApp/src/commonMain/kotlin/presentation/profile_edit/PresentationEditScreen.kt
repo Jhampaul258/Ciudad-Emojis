@@ -41,18 +41,16 @@ data class PresentationEditScreen(val directorId: String) : Screen {
 
         var isSaving by remember { mutableStateOf(false) }
 
-        // Efecto para cargar los datos del director una sola vez
         LaunchedEffect(directorId) {
             isLoadingData = true
             try {
                 directorRepository.getDirector(directorId).collect { director ->
                     if (director != null) {
                         initialDirectorData = director
-                        // Inicializa los estados del formulario con los datos cargados
                         biografia = director.biografia
                         inspiraciones = director.inspiraciones
                         lema = director.lema
-                        errorMessage = null // Limpia errores previos si carga bien
+                        errorMessage = null
                     } else {
                         errorMessage = "No se encontró la información del director."
                     }

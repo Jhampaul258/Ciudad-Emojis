@@ -42,15 +42,13 @@ data class RecognitionEditScreen(val directorId: String) : Screen {
 
         var isSaving by remember { mutableStateOf(false) }
 
-        // Efecto para cargar los datos del director una sola vez
         LaunchedEffect(directorId) {
             isLoadingData = true
             try {
                 directorRepository.getDirector(directorId).collect { director ->
                     if (director != null) {
                         initialDirectorData = director
-                        // Inicializa los estados del formulario con los datos cargados
-                        festivales = director.festivales.toMutableList() // Usamos .toMutableList() para asegurar copias independientes si fuera necesario en listas anidadas, aunque aquí no es crítico.
+                        festivales = director.festivales.toMutableList()
                         premios = director.premios.toMutableList()
                         errorMessage = null
                     } else {

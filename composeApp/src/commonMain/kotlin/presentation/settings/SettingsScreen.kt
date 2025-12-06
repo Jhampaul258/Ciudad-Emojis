@@ -97,7 +97,6 @@ object SettingsScreen : Screen {
                     modifier = Modifier.fillMaxSize().padding(paddingValues).padding(16.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    // --- Aquí llamamos al Header Actualizado ---
                     ProfileHeader(director)
 
                     Spacer(Modifier.height(24.dp))

@@ -50,28 +50,19 @@ class FirebaseAuthRepository : AuthRepository {
             val result = auth.signInWithCredential(credential)
 
             result.user?.let { user ->
-                // --- LÓGICA MODIFICADA ---
-                // 1. Referencia a la colección "directors", no "users"
                 val userDocRef = firestore.collection("directors").document(user.uid)
 
-                // 2. Comprueba si el documento YA EXISTE
                 val userDoc = userDocRef.get()
 
-                // 3. SOLO escribe los datos SI el documento NO existe (primera vez)
                 if (!userDoc.exists) {
-                    // 4. Crea un objeto 'Director' en lugar de 'UserProfile'
                     val newDirectorProfile = Director(
                         uid = user.uid,
                         name = user.displayName ?: "Director",
                         email = user.email ?: "",
-                        // Mapea photoURL a fotoPerfilUrl
                         fotoPerfilUrl = user.photoURL ?: ""
-                        // Todos los demás campos de Director (biografia, universidad, etc.)
-                        // usarán sus valores por defecto (ej: "" o emptyList()),
-                        // ¡lo cual es perfecto para un perfil nuevo!
+
                     )
 
-                    // 5. Guarda el nuevo 'Director' en Firestore
                     userDocRef.set(newDirectorProfile)
                 } else {
                     println("Director ${user.uid} ya existe en Firestore. No se sobrescriben datos.")

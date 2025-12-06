@@ -57,7 +57,6 @@ class PeliculaDetailViewModel(
         }
     }
 
-    // Algoritmo de recomendación: Decide qué mostrar abajo
     private fun calculateRecommendations(allPeliculas: List<Pelicula>) {
         val recomendaciones: List<Pelicula>
         val titulo: String
