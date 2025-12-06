@@ -3,12 +3,18 @@ package presentation.main
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import cafe.adriel.voyager.navigator.Navigator
 import cafe.adriel.voyager.navigator.tab.Tab
 import cafe.adriel.voyager.navigator.tab.TabOptions
+import data.DirectorRepository
 import data.FirebaseAuthRepository
+import domain.model.Director
 import presentation.components.GuestRestrictionScreen
 import presentation.guide.UploadGuideScreen
 import presentation.settings.SettingsScreen
@@ -36,17 +42,32 @@ object UploadTab : Tab {
 
     @Composable override fun Content() { // 1. Verificar Autenticación
         val authRepository = remember { FirebaseAuthRepository() }
-        val isGuest = authRepository.getCurrentUserId() == null
+        val directorRepository = remember { DirectorRepository() }
 
-        if (isGuest) {
-            // 2. Si es invitado, mostramos la restricción
-            GuestRestrictionScreen(
-                title = "Subir Contenido",
-                message = "Para subir películas o series, necesitas registrarte como director."
-            )
-        } else {
-            // 3. Si es usuario, mostramos el contenido normal
-            Navigator(UploadGuideScreen())
+        val userId = authRepository.getCurrentUserId()
+        var currentUser by remember { mutableStateOf<Director?>(null) }
+
+        // Cargar datos del usuario actual
+        LaunchedEffect(userId) {
+            if (userId != null) {
+                directorRepository.getDirector(userId).collect { currentUser = it }
+            }
+        }
+
+        // Lógica de Acceso
+        when {
+            userId == null -> {
+                GuestRestrictionScreen(title = "Subir Contenido", message = "Regístrate para subir contenido.")
+            }
+            currentUser?.isBlocked == true -> { // <--- BLOQUEO
+                GuestRestrictionScreen(
+                    title = "Cuenta Bloqueada",
+                    message = "Tu cuenta ha sido suspendida por un administrador. No puedes subir contenido."
+                )
+            }
+            else -> {
+                Navigator(UploadGuideScreen())
+            }
         }
     }
 }

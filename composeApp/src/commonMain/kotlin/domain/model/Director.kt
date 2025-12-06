@@ -26,4 +26,6 @@ data class Director(
     val yapeQrUrl: String = "",
     val yapeNumero: String = "",
     val plinNumero: String = "",
+    val isAdmin: Boolean = false,      // ¿Es administrador?
+    val isBlocked: Boolean = false     // ¿Está bloqueado para subir contenido?
 )

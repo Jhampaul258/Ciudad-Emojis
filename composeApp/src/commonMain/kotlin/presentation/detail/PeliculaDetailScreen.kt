@@ -10,6 +10,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Delete
 //import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.PlayArrow
@@ -36,6 +37,7 @@ import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import coil3.compose.AsyncImage
 import data.DirectorRepository
+import data.FirebaseAuthRepository
 import data.PeliculaRepository
 import domain.model.Director
 import domain.model.Pelicula
@@ -57,14 +59,25 @@ data class PeliculaDetailScreen(val pelicula: Pelicula) : Screen {
         // --- Repositorios ---
         val peliculaRepository = remember { PeliculaRepository() }
         val directorRepository = remember { DirectorRepository() }
+        val authRepository = remember { FirebaseAuthRepository() } // <--- Agregado
 
         // --- Estado ---
         val allPeliculasState by peliculaRepository.getAllPeliculasStream().collectAsState(initial = emptyList())
         var directorData by remember { mutableStateOf<Director?>(null) }
+        var currentUser by remember { mutableStateOf<Director?>(null) } // Usuario actual (Admin/Visitante)
 
         LaunchedEffect(pelicula.directorId) {
             directorRepository.getDirector(pelicula.directorId).collect {
                 directorData = it
+            }
+        }
+        // Cargar datos del usuario actual para verificar permisos
+        val currentUserId = authRepository.getCurrentUserId()
+        LaunchedEffect(currentUserId) {
+            if (currentUserId != null) {
+                directorRepository.getDirector(currentUserId).collect {
+                    currentUser = it
+                }
             }
         }
 
@@ -128,6 +141,36 @@ data class PeliculaDetailScreen(val pelicula: Pelicula) : Screen {
                     },
                     colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
                 )
+            },
+            floatingActionButton = {
+                val isAdmin = currentUser?.isAdmin == true
+                // val isOwner = currentUser?.uid == pelicula.directorId
+
+                if (isAdmin) {
+                    FloatingActionButton(
+                        onClick = {
+                            scope.launch {
+                                try {
+                                    val result = peliculaRepository.deletePelicula(pelicula.id)
+                                    if (result.isSuccess) {
+                                        snackbarController.showSuccess("Contenido eliminado por administración")
+                                        navigator.pop() // Regresar tras borrar
+                                    } else {
+                                        val errorMsg = result.exceptionOrNull()?.message ?: "Error desconocido"
+                                        // Si falla por permisos (reglas Firestore), el mensaje ayudará a depurar
+                                        snackbarController.showError("Error al eliminar: $errorMsg")
+                                    }
+                                } catch (e: Exception) {
+                                    snackbarController.showError("Error: ${e.message}")
+                                }
+                            }
+                        },
+                        containerColor = MaterialTheme.colorScheme.error,
+                        contentColor = MaterialTheme.colorScheme.onError
+                    ) {
+                        Icon(Icons.Default.Delete, contentDescription = "Eliminar Contenido")
+                    }
+                }
             }
         ) { padding ->
             LazyColumn(modifier = Modifier.fillMaxSize()) {

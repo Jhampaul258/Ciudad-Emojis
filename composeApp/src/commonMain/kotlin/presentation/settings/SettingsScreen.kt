@@ -3,8 +3,10 @@ package presentation.settings
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.CheckCircle
@@ -26,6 +28,7 @@ import data.FirebaseAuthRepository
 import domain.model.Director
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
+import presentation.admin.AdminUserListScreen
 import presentation.auth.LoginScreen
 import presentation.profile_edit.BasicInfoEditScreen
 import presentation.profile_edit.DigitalPresenceEditScreen
@@ -102,7 +105,7 @@ object SettingsScreen : Screen {
                     Spacer(Modifier.height(24.dp))
 
                     Column(
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         ProfileMenuItem("Información Básica", isBasicInfoComplete) { parentNavigator.push(BasicInfoEditScreen(directorId)) }
@@ -111,6 +114,19 @@ object SettingsScreen : Screen {
                         ProfileMenuItem("Presencia Digital/ redes sociales", isDigitalPresenceComplete) { parentNavigator.push(DigitalPresenceEditScreen(directorId)) }
                         ProfileMenuItem("Apoyo y Financiamiento", isSupportComplete) { parentNavigator.push(SupportEditScreen(directorId)) }
                         ProfileMenuItem("Mis Películas y Series", isSupportComplete) { parentNavigator.push(DirectorContentScreen()) }
+                        // ... dentro de la lista de opciones ...
+                        Spacer(Modifier.height(16.dp))
+
+                        if (director?.isAdmin == true) {
+                            HorizontalDivider()
+                            Text("Zona de Administración", modifier = Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+
+                            ProfileMenuItem(
+                                text = "Gestionar Usuarios (Bloquear)",
+                                isComplete = true, // Siempre activo
+                                onClick = { parentNavigator.push(AdminUserListScreen()) } // Navega a la pantalla del Paso 3
+                            )
+                        }
                     }
 
                     Spacer(Modifier.height(16.dp))
